@@ -91,16 +91,33 @@ object PlayerManager {
 
         scope.launch {
             try {
-                if (ytDlpPath == null) { error = "yt-dlp not found"; isLoading = false; notifyChange(); return@launch }
-                if (ffmpegPath == null) { error = "ffmpeg not found"; isLoading = false; notifyChange(); return@launch }
-
                 if (currentGeneration != gen) return@launch
 
-                val audioFile = resolveAudio(song.id, gen) ?: return@launch
+                val isLocal = song.id.startsWith("local:")
+                if (!isLocal) {
+                    if (ytDlpPath == null) { error = "yt-dlp not found"; isLoading = false; notifyChange(); return@launch }
+                    if (ffmpegPath == null) { error = "ffmpeg not found"; isLoading = false; notifyChange(); return@launch }
+                }
                 if (currentGeneration != gen) return@launch
 
-                // Save metadata for cached tab
-                CacheMetadataManager.saveMetadata(song)
+                val audioFile = if (isLocal) {
+                    val f = File(song.id.removePrefix("local:"))
+                    if (!f.exists() || !f.isFile) {
+                        error = "File not found"
+                        isLoading = false
+                        notifyChange()
+                        return@launch
+                    }
+                    f
+                } else {
+                    resolveAudio(song.id, gen) ?: return@launch
+                }
+                if (currentGeneration != gen) return@launch
+
+                if (!isLocal) {
+                    // Save metadata for cached tab
+                    CacheMetadataManager.saveMetadata(song)
+                }
 
                 currentAudioFile = audioFile
                 isLoading = false
@@ -233,6 +250,7 @@ object PlayerManager {
         }
         val nextSong = queue[nextIndex]
         if (nextSong.id == preloadedVideoId) return
+        if (nextSong.id.startsWith("local:")) return // local files need no preload
         if (getCachedFile(nextSong.id) != null) return // already cached
 
         preloadedVideoId = nextSong.id
@@ -246,6 +264,7 @@ object PlayerManager {
     }
 
     fun downloadSong(song: SongItem) {
+        if (song.id.startsWith("local:")) return // already a local file
         if (DownloadsManager.isDownloaded(song.id)) return
         scope.launch(Dispatchers.IO) {
             try {

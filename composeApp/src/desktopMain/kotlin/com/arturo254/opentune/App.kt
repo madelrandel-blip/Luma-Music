@@ -34,6 +34,7 @@ import com.arturo254.opentune.innertube.models.YouTubeLocale
 import com.arturo254.opentune.library.CacheMetadataManager
 import com.arturo254.opentune.library.DownloadsManager
 import com.arturo254.opentune.library.LikedSongsManager
+import com.arturo254.opentune.library.LocalSongsManager
 import com.arturo254.opentune.player.PlayerManager
 import com.arturo254.opentune.player.RepeatMode
 import com.arturo254.opentune.ui.EqualizerBars
@@ -41,6 +42,11 @@ import com.arturo254.opentune.ui.NowPlayingState
 import com.arturo254.opentune.ui.theme.LumaMusicTheme
 import java.io.File
 import java.util.Locale
+import javax.swing.JFileChooser
+import javax.swing.filechooser.FileNameExtensionFilter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 sealed class Screen(val label: String, val icon: ImageVector) {
     data object Home : Screen("Home", Icons.Filled.Home)
@@ -329,17 +335,34 @@ fun PlayerBar() {
                 modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (song != null) {
-                    AsyncImage(
-                        model = song?.thumbnail,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Crop
-                    )
+                val current = song
+                if (current != null) {
+                    if (current.thumbnail.isBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Filled.MusicNote,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        AsyncImage(
+                            model = current.thumbnail,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            song?.title ?: "",
+                            current.title,
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
@@ -347,7 +370,7 @@ fun PlayerBar() {
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            song?.artists?.joinToString { it.name } ?: "",
+                            current.artists.joinToString { it.name },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
@@ -429,27 +452,29 @@ fun PlayerBar() {
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
-                    IconButton(onClick = {
-                        song?.let { s ->
-                            if (!isDownloaded && !isDownloading) {
-                                isDownloading = true
-                                PlayerManager.downloadSong(s)
+                    if (song?.id?.startsWith("local:") != true) {
+                        IconButton(onClick = {
+                            song?.let { s ->
+                                if (!isDownloaded && !isDownloading) {
+                                    isDownloading = true
+                                    PlayerManager.downloadSong(s)
+                                }
                             }
+                        }) {
+                            Icon(
+                                when {
+                                    isDownloaded -> Icons.Filled.DownloadDone
+                                    isDownloading -> Icons.Filled.Downloading
+                                    else -> Icons.Filled.Download
+                                },
+                                contentDescription = "Download",
+                                tint = when {
+                                    isDownloaded -> MaterialTheme.colorScheme.primary
+                                    isDownloading -> MaterialTheme.colorScheme.tertiary
+                                    else -> MaterialTheme.colorScheme.onSurface
+                                }
+                            )
                         }
-                    }) {
-                        Icon(
-                            when {
-                                isDownloaded -> Icons.Filled.DownloadDone
-                                isDownloading -> Icons.Filled.Downloading
-                                else -> Icons.Filled.Download
-                            },
-                            contentDescription = "Download",
-                            tint = when {
-                                isDownloaded -> MaterialTheme.colorScheme.primary
-                                isDownloading -> MaterialTheme.colorScheme.tertiary
-                                else -> MaterialTheme.colorScheme.onSurface
-                            }
-                        )
                     }
                 } else {
                     Spacer(modifier = Modifier.weight(1f))
@@ -616,15 +641,17 @@ fun LibraryScreen() {
     var likedSongs by remember { mutableStateOf(LikedSongsManager.likedSongs) }
     var downloadedSongs by remember { mutableStateOf(DownloadsManager.downloadedSongs) }
     var cachedSongs by remember { mutableStateOf(CacheMetadataManager.getActualCachedSongs()) }
+    var localSongs by remember { mutableStateOf(LocalSongsManager.songs) }
 
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Liked", "Downloaded", "Cached")
+    val tabs = listOf("Liked", "Downloaded", "Cached", "Local")
 
     // Refresh all data when switching tabs
     LaunchedEffect(selectedTab) {
         likedSongs = LikedSongsManager.likedSongs
         downloadedSongs = DownloadsManager.downloadedSongs
         cachedSongs = CacheMetadataManager.getActualCachedSongs()
+        localSongs = LocalSongsManager.songs
     }
 
     // Also refresh on first composition
@@ -632,6 +659,7 @@ fun LibraryScreen() {
         likedSongs = LikedSongsManager.likedSongs
         downloadedSongs = DownloadsManager.downloadedSongs
         cachedSongs = CacheMetadataManager.getActualCachedSongs()
+        localSongs = LocalSongsManager.songs
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -683,6 +711,10 @@ fun LibraryScreen() {
                     cachedSongs = CacheMetadataManager.getActualCachedSongs()
                 }
             )
+            3 -> LocalSongList(
+                songs = localSongs,
+                onSongsChanged = { localSongs = LocalSongsManager.songs }
+            )
         }
     }
 }
@@ -733,6 +765,128 @@ fun LibrarySongList(
                 isLiked = if (onLike != null) LikedSongsManager.isLiked(song.id) else false,
                 onDelete = if (onDelete != null) {{ onDelete(song) }} else null
             )
+        }
+    }
+}
+
+@Composable
+fun LocalSongList(
+    songs: List<SongItem>,
+    onSongsChanged: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    var scanning by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+
+    fun runImport(task: () -> Int) {
+        scanning = true
+        message = null
+        scope.launch {
+            val added = withContext(Dispatchers.IO) { task() }
+            scanning = false
+            message = if (added > 0) "Added $added song(s)" else "No new songs found"
+            onSongsChanged()
+        }
+    }
+
+    fun chooseFolder() {
+        val chooser = JFileChooser().apply {
+            dialogTitle = "Choose a folder with songs"
+            fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
+            isAcceptAllFileFilterUsed = false
+        }
+        if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+            chooser.selectedFile?.let { dir -> runImport { LocalSongsManager.addFolder(dir) } }
+        }
+    }
+
+    fun chooseFiles() {
+        val chooser = JFileChooser().apply {
+            dialogTitle = "Choose song files"
+            isMultiSelectionEnabled = true
+            fileSelectionMode = JFileChooser.FILES_ONLY
+            fileFilter = FileNameExtensionFilter(
+                "Audio files",
+                *LocalSongsManager.AUDIO_EXTENSIONS.toTypedArray()
+            )
+        }
+        if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+            val files = chooser.selectedFiles.toList()
+            if (files.isNotEmpty()) runImport { LocalSongsManager.addFiles(files) }
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    "${songs.size} songs",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                if (message != null) {
+                    Text(
+                        message ?: "",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalButton(onClick = { chooseFolder() }) {
+                    Icon(Icons.Filled.CreateNewFolder, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Add Folder")
+                }
+                FilledTonalButton(onClick = { chooseFiles() }) {
+                    Icon(Icons.Filled.LibraryMusic, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Add Files")
+                }
+            }
+        }
+
+        when {
+            scanning -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Importing songs...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            songs.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("No local songs yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    FilledTonalButton(onClick = { chooseFolder() }) {
+                        Icon(Icons.Filled.CreateNewFolder, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Choose Folder")
+                    }
+                }
+            }
+            else -> LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(songs, key = { it.id }) { song ->
+                    SongListItem(
+                        song = song,
+                        onClick = { PlayerManager.playSong(song, songs) },
+                        onLike = { LikedSongsManager.toggleLike(song); onSongsChanged() },
+                        isLiked = LikedSongsManager.isLiked(song.id),
+                        onDelete = {
+                            LocalSongsManager.remove(LocalSongsManager.pathFromId(song.id))
+                            onSongsChanged()
+                        }
+                    )
+                }
+            }
         }
     }
 }
@@ -1400,6 +1554,19 @@ fun SongListItem(
                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
                     )
                     EqualizerBars(color = MaterialTheme.colorScheme.primary, animated = isCurrentPlaying)
+                } else if (song.thumbnail.isBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Filled.MusicNote,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 } else {
                     AsyncImage(
                         model = song.thumbnail,
