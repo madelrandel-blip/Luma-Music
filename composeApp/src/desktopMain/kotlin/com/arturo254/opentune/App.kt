@@ -35,6 +35,7 @@ import com.arturo254.opentune.library.CacheMetadataManager
 import com.arturo254.opentune.library.DownloadsManager
 import com.arturo254.opentune.library.LikedSongsManager
 import com.arturo254.opentune.library.LocalSongsManager
+import com.arturo254.opentune.library.SearchHistoryManager
 import com.arturo254.opentune.player.PlayerManager
 import com.arturo254.opentune.player.RepeatMode
 import com.arturo254.opentune.ui.EqualizerBars
@@ -145,7 +146,9 @@ fun App() {
                         AppTopBar(
                             searchQuery = searchQuery,
                             onSearchQueryChange = { searchQuery = it },
-                            onSearch = {}
+                            onSearch = {
+                                if (searchQuery.isNotBlank()) SearchHistoryManager.add(searchQuery)
+                            }
                         )
                     }
 
@@ -158,6 +161,10 @@ fun App() {
                                 loading = searchLoading,
                                 error = searchError,
                                 hasQuery = searchHasQuery,
+                                history = SearchHistoryManager.entries,
+                                onHistoryClick = { searchQuery = it },
+                                onRemoveHistory = { SearchHistoryManager.remove(it) },
+                                onClearHistory = { SearchHistoryManager.clear() },
                                 scrollState = searchScrollState
                             )
                             is Screen.Explore -> ExploreScreen()
@@ -244,6 +251,8 @@ fun AppTopBar(
                 placeholder = { Text("Search music...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { onSearch() }),
                 shape = RoundedCornerShape(24.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -559,10 +568,76 @@ fun SearchScreen(
     loading: Boolean,
     error: String?,
     hasQuery: Boolean,
+    history: List<String>,
+    onHistoryClick: (String) -> Unit,
+    onRemoveHistory: (String) -> Unit,
+    onClearHistory: () -> Unit,
     scrollState: LazyListState
 ) {
     when {
-        !hasQuery -> EmptyScreen("Type to search...")
+        !hasQuery -> {
+            if (history.isEmpty()) {
+                EmptyScreen("Type to search...")
+            } else {
+                LazyColumn(
+                    state = scrollState,
+                    modifier = Modifier.fillMaxSize().padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Recent Searches",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            TextButton(onClick = onClearHistory) {
+                                Text("Clear", color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    }
+                    items(history, key = { it }) { entry ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onHistoryClick(entry) }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Outlined.History,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                entry,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            IconButton(onClick = { onRemoveHistory(entry) }) {
+                                Icon(
+                                    Icons.Outlined.Close,
+                                    contentDescription = "Remove from history",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
         error != null && results.isEmpty() -> ErrorScreen(error)
         results.isEmpty() && loading -> LoadingScreen()
         else -> LazyColumn(
@@ -1205,6 +1280,11 @@ fun PrivacySettings(onBack: () -> Unit) {
                     DesktopPreferences.pauseSearchHistory,
                     MaterialTheme.colorScheme.tertiary
                 ) { DesktopPreferences.updatePauseSearchHistory(it) }
+                SettingsDestructiveRow(
+                    Icons.Filled.DeleteSweep,
+                    "Clear Search History",
+                    MaterialTheme.colorScheme.error
+                ) { SearchHistoryManager.clear() }
             }
         }
 
