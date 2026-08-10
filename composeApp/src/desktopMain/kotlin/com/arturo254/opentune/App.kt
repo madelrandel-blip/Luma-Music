@@ -56,6 +56,8 @@ import java.util.Locale
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -111,6 +113,7 @@ fun App() {
 
         // Hoisted search state — survives navigation
         var searchResults by remember { mutableStateOf<SearchSummaryPage?>(null) }
+        var searchSongs by remember { mutableStateOf<List<SongItem>>(emptyList()) }
         var searchLoading by remember { mutableStateOf(false) }
         var searchError by remember { mutableStateOf<String?>(null) }
         var searchHasQuery by remember { mutableStateOf(false) }
@@ -122,6 +125,7 @@ fun App() {
             if (searchQuery.isBlank()) {
                 searchHasQuery = false
                 searchResults = null
+                searchSongs = emptyList()
                 lastSearchedQuery = ""
                 return@LaunchedEffect
             }
@@ -131,17 +135,27 @@ fun App() {
             if (searchQuery != lastSearchedQuery) {
                 searchLoading = true
                 searchError = null
-                YouTube.searchSummary(searchQuery).onSuccess { page ->
-                    // Only apply if still the latest query
-                    if (searchQuery == lastSearchedQuery || page.summaries.isNotEmpty()) {
-                        searchResults = page
-                        lastSearchedQuery = searchQuery
+                coroutineScope {
+                    val summaryDeferred = async { YouTube.searchSummary(searchQuery) }
+                    val songsDeferred = async { YouTube.search(searchQuery, YouTube.SearchFilter.FILTER_SONG) }
+                    summaryDeferred.await().onSuccess { page ->
+                        // Only apply if still the latest query
+                        if (searchQuery == lastSearchedQuery || page.summaries.isNotEmpty()) {
+                            searchResults = page
+                            lastSearchedQuery = searchQuery
+                        }
+                    }.onFailure { e ->
+                        searchError = mapError(e)
                     }
-                    searchLoading = false
-                }.onFailure { e ->
-                    searchError = mapError(e)
-                    searchLoading = false
+                    songsDeferred.await().onSuccess { result ->
+                        if (searchQuery == lastSearchedQuery || result.items.isNotEmpty()) {
+                            searchSongs = result.items.filterIsInstance<SongItem>()
+                        }
+                    }.onFailure { e ->
+                        searchError = mapError(e)
+                    }
                 }
+                searchLoading = false
             }
         }
 
@@ -219,6 +233,7 @@ fun App() {
                             is Screen.Search -> SearchScreen(
                                 query = searchQuery,
                                 results = searchResults,
+                                songs = searchSongs,
                                 loading = searchLoading,
                                 error = searchError,
                                 hasQuery = searchHasQuery,
@@ -622,6 +637,7 @@ fun HomeScreen(onOpenDetail: (DetailScreen) -> Unit) {
 fun SearchScreen(
     query: String,
     results: SearchSummaryPage?,
+    songs: List<SongItem>,
     loading: Boolean,
     error: String?,
     hasQuery: Boolean,
@@ -697,7 +713,7 @@ fun SearchScreen(
             }
         }
         error != null && results == null -> ErrorScreen(error)
-        (results == null || results.summaries.isEmpty()) && loading -> LoadingScreen()
+        (results == null || results.summaries.isEmpty()) && songs.isEmpty() && loading -> LoadingScreen()
         else -> LazyColumn(
             state = scrollState,
             modifier = Modifier.fillMaxSize().padding(24.dp),
@@ -726,29 +742,10 @@ fun SearchScreen(
             }
             val summaries = results?.summaries.orEmpty()
             summaries.forEach { summary ->
-                val songItems = summary.items.filterIsInstance<SongItem>()
-                if (songItems.isNotEmpty() && songItems.size == summary.items.size) {
-                    item {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                summary.title,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onBackground,
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            )
-                            summary.items.forEach { item ->
-                                val song = item as SongItem
-                                SongListItem(
-                                    song = song,
-                                    onClick = { PlayerManager.playSong(song, songItems) },
-                                    onLike = { LikedSongsManager.toggleLike(song) },
-                                    isLiked = LikedSongsManager.isLiked(song.id)
-                                )
-                            }
-                        }
-                    }
-                } else if (summary.items.isNotEmpty()) {
+                // All-song sections are rendered as the full song list at the bottom
+                val isSongSection = summary.items.isNotEmpty() &&
+                    summary.items.all { it is SongItem }
+                if (!isSongSection && summary.items.isNotEmpty()) {
                     item {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text(
@@ -760,6 +757,25 @@ fun SearchScreen(
                             MediaRow(items = summary.items, onOpenDetail = onOpenDetail)
                         }
                     }
+                }
+            }
+            if (songs.isNotEmpty()) {
+                item {
+                    Text(
+                        "Songs",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                }
+                items(songs, key = { it.id }) { song ->
+                    SongListItem(
+                        song = song,
+                        onClick = { PlayerManager.playSong(song, songs) },
+                        onLike = { LikedSongsManager.toggleLike(song) },
+                        isLiked = LikedSongsManager.isLiked(song.id)
+                    )
                 }
             }
         }
