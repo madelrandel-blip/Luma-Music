@@ -24,3 +24,9 @@ Desktop.ini
 
 # Temporary / local scripts
 run.bat
+
+# Bundled runtime binaries (ffmpeg, yt-dlp) - too large for GitHub (< 100 MB limit).
+# To build a self-contained distribution, place them in:
+# composeApp/src/desktopMain/extraResources/common/bin/ffmpeg.exe
+# composeApp/src/desktopMain/extraResources/common/bin/yt-dlp.exe
+composeApp/src/desktopMain/extraResources/

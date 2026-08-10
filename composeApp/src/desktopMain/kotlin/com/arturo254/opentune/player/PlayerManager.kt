@@ -1,5 +1,6 @@
 package com.arturo254.opentune.player
 
+import com.arturo254.opentune.DesktopPreferences
 import com.arturo254.opentune.innertube.models.SongItem
 import com.arturo254.opentune.library.CacheMetadataManager
 import com.arturo254.opentune.library.DownloadsManager
@@ -337,7 +338,18 @@ object PlayerManager {
         ffmpegPath = findFfmpeg()
     }
 
+    private fun bundledExe(name: String): String? {
+        return runCatching {
+            val codeSource = DesktopPreferences::class.java.protectionDomain.codeSource
+            val jarFile = codeSource?.location?.let { File(it.toURI()) } ?: return null
+            val appDir = jarFile.parentFile ?: return null
+            val exe = File(File(appDir, "resources"), name)
+            if (exe.exists()) exe.absolutePath else null
+        }.getOrNull()
+    }
+
     private fun findYtDlp(): String? {
+        bundledExe("bin/yt-dlp.exe")?.let { return it }
         val user = System.getProperty("user.name")
         val winGetDir = File("C:\\Users\\$user\\AppData\\Local\\Microsoft\\WinGet\\Packages")
         if (winGetDir.exists()) {
@@ -356,6 +368,7 @@ object PlayerManager {
     }
 
     private fun findFfmpeg(): String? {
+        bundledExe("bin/ffmpeg.exe")?.let { return it }
         val user = System.getProperty("user.name")
         val candidates = listOf("C:\\Program Files\\Krita (x64)\\bin\\ffmpeg.exe")
         for (path in candidates) { if (File(path).exists()) return path }

@@ -45,6 +45,8 @@ compose.desktop {
             description = "Luma Music - YouTube Music desktop client"
             vendor = "Luma Music"
 
+            appResourcesRootDir.set(project.file("src/desktopMain/extraResources"))
+
             windows {
                 menuGroup = "Luma Music"
                 perUserInstall = true
