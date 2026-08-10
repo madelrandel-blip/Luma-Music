@@ -44,6 +44,7 @@ import com.arturo254.opentune.innertube.utils.completed
 import com.arturo254.opentune.library.CacheMetadataManager
 import com.arturo254.opentune.library.DownloadsManager
 import com.arturo254.opentune.library.LikedSongsManager
+import com.arturo254.opentune.library.ListenHistoryManager
 import com.arturo254.opentune.library.LocalSongsManager
 import com.arturo254.opentune.library.SearchHistoryManager
 import com.arturo254.opentune.player.PlayerManager
@@ -244,7 +245,7 @@ fun App() {
                                 onOpenDetail = { detailScreen = it },
                                 scrollState = searchScrollState
                             )
-                            is Screen.Explore -> ExploreScreen()
+                            is Screen.Explore -> ExploreScreen(onOpenDetail = { detailScreen = it })
                             is Screen.Library -> LibraryScreen()
                             is Screen.Settings -> {
                                 when (settingsSubScreen) {
@@ -591,40 +592,76 @@ fun mapError(e: Throwable?): String {
 // ===================== HOME =====================
 @Composable
 fun HomeScreen(onOpenDetail: (DetailScreen) -> Unit) {
-    var sections by remember { mutableStateOf<List<com.arturo254.opentune.innertube.pages.HomePage.Section>>(emptyList()) }
-    var loading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
+    val history = ListenHistoryManager.entries
 
-    LaunchedEffect(Unit) {
-        loading = true
-        YouTube.home().onSuccess { page ->
-            sections = page.sections
-            loading = false
-        }.onFailure { e ->
-            error = mapError(e)
-            loading = false
-        }
+    val albums = remember(history) {
+        history.mapNotNull { song ->
+            val album = song.album ?: return@mapNotNull null
+            AlbumItem(
+                browseId = album.id,
+                playlistId = song.id,
+                title = album.name,
+                artists = song.artists.takeIf { it.isNotEmpty() },
+                thumbnail = song.thumbnail,
+                explicit = song.explicit
+            )
+        }.distinctBy { it.browseId }
+    }
+    val artists = remember(history) {
+        history.flatMap { it.artists }
+            .filter { !it.id.isNullOrBlank() }
+            .map { artist ->
+                ArtistItem(
+                    id = artist.id!!,
+                    title = artist.name,
+                    thumbnail = null,
+                    shuffleEndpoint = null,
+                    radioEndpoint = null
+                )
+            }
+            .distinctBy { it.id }
     }
 
     when {
-        loading -> LoadingScreen()
-        error != null -> ErrorScreen(error!!)
+        history.isEmpty() -> EmptyScreen("Play some music to get personalized recommendations")
         else -> LazyColumn(
             modifier = Modifier.fillMaxSize().padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            sections.forEach { section ->
-                if (section.items.isNotEmpty()) {
-                    item {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text(
-                                section.title,
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
-                            MediaRow(items = section.items, onOpenDetail = onOpenDetail)
-                        }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "Listen Again",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    MediaRow(items = history, onOpenDetail = onOpenDetail)
+                }
+            }
+            if (albums.isNotEmpty()) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            "Albums You've Played",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        MediaRow(items = albums, onOpenDetail = onOpenDetail)
+                    }
+                }
+            }
+            if (artists.isNotEmpty()) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            "Artists You've Played",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        MediaRow(items = artists, onOpenDetail = onOpenDetail)
                     }
                 }
             }
@@ -784,15 +821,15 @@ fun SearchScreen(
 
 // ===================== EXPLORE =====================
 @Composable
-fun ExploreScreen() {
-    var moodItems by remember { mutableStateOf<List<com.arturo254.opentune.innertube.pages.MoodAndGenres.Item>>(emptyList()) }
+fun ExploreScreen(onOpenDetail: (DetailScreen) -> Unit) {
+    var sections by remember { mutableStateOf<List<com.arturo254.opentune.innertube.pages.HomePage.Section>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         loading = true
-        YouTube.moodAndGenres().onSuccess { result ->
-            moodItems = result.flatMap { it.items }
+        YouTube.home().onSuccess { page ->
+            sections = page.sections
             loading = false
         }.onFailure { e ->
             error = mapError(e)
@@ -803,13 +840,25 @@ fun ExploreScreen() {
     when {
         loading -> LoadingScreen()
         error != null -> ErrorScreen(error!!)
-        else -> LazyVerticalGrid(
-            columns = GridCells.Fixed(3),
+        else -> LazyColumn(
             modifier = Modifier.fillMaxSize().padding(24.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            items(moodItems) { mood -> MoodChip(mood = mood) }
+            sections.forEach { section ->
+                if (section.items.isNotEmpty()) {
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(
+                                section.title,
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            MediaRow(items = section.items, onOpenDetail = onOpenDetail)
+                        }
+                    }
+                }
+            }
         }
     }
 }

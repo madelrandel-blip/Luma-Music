@@ -4,6 +4,7 @@ import com.arturo254.opentune.DesktopPreferences
 import com.arturo254.opentune.innertube.models.SongItem
 import com.arturo254.opentune.library.CacheMetadataManager
 import com.arturo254.opentune.library.DownloadsManager
+import com.arturo254.opentune.library.ListenHistoryManager
 import kotlinx.coroutines.*
 import java.io.BufferedReader
 import java.io.File
@@ -124,6 +125,7 @@ object PlayerManager {
                 isPlaying = true
                 notifyChange()
                 startThread(audioFile, 0L, gen)
+                ListenHistoryManager.record(song)
 
                 scope.launch { cleanupCache() }
             } catch (e: Exception) {
