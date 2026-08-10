@@ -29,8 +29,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.arturo254.opentune.innertube.YouTube
+import com.arturo254.opentune.innertube.models.AlbumItem
+import com.arturo254.opentune.innertube.models.Artist
+import com.arturo254.opentune.innertube.models.ArtistItem
+import com.arturo254.opentune.innertube.models.PlaylistItem
 import com.arturo254.opentune.innertube.models.SongItem
 import com.arturo254.opentune.innertube.models.YouTubeLocale
+import com.arturo254.opentune.innertube.models.YTItem
+import com.arturo254.opentune.innertube.pages.AlbumPage
+import com.arturo254.opentune.innertube.pages.ArtistPage
+import com.arturo254.opentune.innertube.pages.PlaylistPage
+import com.arturo254.opentune.innertube.pages.SearchSummaryPage
+import com.arturo254.opentune.innertube.utils.completed
 import com.arturo254.opentune.library.CacheMetadataManager
 import com.arturo254.opentune.library.DownloadsManager
 import com.arturo254.opentune.library.LikedSongsManager
@@ -57,6 +67,29 @@ sealed class Screen(val label: String, val icon: ImageVector) {
     data object Settings : Screen("Settings", Icons.Filled.Settings)
 }
 
+sealed class DetailScreen {
+    abstract val title: String
+
+    data class Album(
+        val browseId: String,
+        override val title: String,
+        val thumbnail: String?,
+        val artists: List<com.arturo254.opentune.innertube.models.Artist>?
+    ) : DetailScreen()
+
+    data class Playlist(
+        val playlistId: String,
+        override val title: String,
+        val thumbnail: String?
+    ) : DetailScreen()
+
+    data class Artist(
+        val browseId: String,
+        override val title: String,
+        val thumbnail: String?
+    ) : DetailScreen()
+}
+
 sealed class SettingsSubScreen(val label: String) {
     data object Main : SettingsSubScreen("Settings")
     data object Appearance : SettingsSubScreen("Appearance")
@@ -73,10 +106,11 @@ fun App() {
     LumaMusicTheme {
         var currentScreen by remember { mutableStateOf<Screen>(Screen.Home) }
         var settingsSubScreen by remember { mutableStateOf<SettingsSubScreen>(SettingsSubScreen.Main) }
+        var detailScreen by remember { mutableStateOf<DetailScreen?>(null) }
         var searchQuery by remember { mutableStateOf("") }
 
         // Hoisted search state — survives navigation
-        val searchResults = remember { mutableStateListOf<SongItem>() }
+        var searchResults by remember { mutableStateOf<SearchSummaryPage?>(null) }
         var searchLoading by remember { mutableStateOf(false) }
         var searchError by remember { mutableStateOf<String?>(null) }
         var searchHasQuery by remember { mutableStateOf(false) }
@@ -87,7 +121,7 @@ fun App() {
         LaunchedEffect(searchQuery) {
             if (searchQuery.isBlank()) {
                 searchHasQuery = false
-                searchResults.clear()
+                searchResults = null
                 lastSearchedQuery = ""
                 return@LaunchedEffect
             }
@@ -97,11 +131,10 @@ fun App() {
             if (searchQuery != lastSearchedQuery) {
                 searchLoading = true
                 searchError = null
-                YouTube.search(searchQuery, YouTube.SearchFilter.FILTER_SONG).onSuccess { result ->
+                YouTube.searchSummary(searchQuery).onSuccess { page ->
                     // Only apply if still the latest query
-                    if (searchQuery == lastSearchedQuery || result.items.isNotEmpty()) {
-                        searchResults.clear()
-                        searchResults.addAll(result.items.filterIsInstance<SongItem>())
+                    if (searchQuery == lastSearchedQuery || page.summaries.isNotEmpty()) {
+                        searchResults = page
                         lastSearchedQuery = searchQuery
                     }
                     searchLoading = false
@@ -132,15 +165,22 @@ fun App() {
                     currentScreen = currentScreen,
                     onScreenSelected = {
                         currentScreen = it
+                        detailScreen = null
                         if (it is Screen.Settings) settingsSubScreen = SettingsSubScreen.Main
                     }
                 )
 
                 Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                    val detail = detailScreen
                     if (currentScreen is Screen.Settings && settingsSubScreen !is SettingsSubScreen.Main) {
                         SettingsTopBar(
                             title = (settingsSubScreen as SettingsSubScreen).label,
                             onBack = { settingsSubScreen = SettingsSubScreen.Main }
+                        )
+                    } else if (detail != null) {
+                        SettingsTopBar(
+                            title = detail.title,
+                            onBack = { detailScreen = null }
                         )
                     } else {
                         AppTopBar(
@@ -153,8 +193,29 @@ fun App() {
                     }
 
                     Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                        when (currentScreen) {
-                            is Screen.Home -> HomeScreen()
+                        if (detail != null) {
+                            when (detail) {
+                                is DetailScreen.Album -> AlbumScreen(
+                                    browseId = detail.browseId,
+                                    fallbackTitle = detail.title,
+                                    fallbackThumbnail = detail.thumbnail,
+                                    fallbackArtists = detail.artists
+                                )
+                                is DetailScreen.Playlist -> PlaylistScreen(
+                                    playlistId = detail.playlistId,
+                                    fallbackTitle = detail.title,
+                                    fallbackThumbnail = detail.thumbnail
+                                )
+                                is DetailScreen.Artist -> ArtistScreen(
+                                    browseId = detail.browseId,
+                                    fallbackTitle = detail.title,
+                                    fallbackThumbnail = detail.thumbnail,
+                                    onOpenDetail = { detailScreen = it }
+                                )
+                            }
+                        } else {
+                            when (currentScreen) {
+                            is Screen.Home -> HomeScreen(onOpenDetail = { detailScreen = it })
                             is Screen.Search -> SearchScreen(
                                 query = searchQuery,
                                 results = searchResults,
@@ -165,6 +226,7 @@ fun App() {
                                 onHistoryClick = { searchQuery = it },
                                 onRemoveHistory = { SearchHistoryManager.remove(it) },
                                 onClearHistory = { SearchHistoryManager.clear() },
+                                onOpenDetail = { detailScreen = it },
                                 scrollState = searchScrollState
                             )
                             is Screen.Explore -> ExploreScreen()
@@ -190,10 +252,11 @@ fun App() {
                     }
                 }
             }
-
-            PlayerBar()
         }
+
+        PlayerBar()
     }
+}
 }
 
 @Composable
@@ -512,7 +575,7 @@ fun mapError(e: Throwable?): String {
 
 // ===================== HOME =====================
 @Composable
-fun HomeScreen() {
+fun HomeScreen(onOpenDetail: (DetailScreen) -> Unit) {
     var sections by remember { mutableStateOf<List<com.arturo254.opentune.innertube.pages.HomePage.Section>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -536,22 +599,16 @@ fun HomeScreen() {
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             sections.forEach { section ->
-                val songs = section.items.filterIsInstance<SongItem>()
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
-                            section.title,
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            items(songs.take(12)) { song ->
-                                SongCard(
-                                    song = song,
-                                    onClick = { PlayerManager.playSong(song, songs) }
-                                )
-                            }
+                if (section.items.isNotEmpty()) {
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(
+                                section.title,
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            MediaRow(items = section.items, onOpenDetail = onOpenDetail)
                         }
                     }
                 }
@@ -564,7 +621,7 @@ fun HomeScreen() {
 @Composable
 fun SearchScreen(
     query: String,
-    results: List<SongItem>,
+    results: SearchSummaryPage?,
     loading: Boolean,
     error: String?,
     hasQuery: Boolean,
@@ -572,6 +629,7 @@ fun SearchScreen(
     onHistoryClick: (String) -> Unit,
     onRemoveHistory: (String) -> Unit,
     onClearHistory: () -> Unit,
+    onOpenDetail: (DetailScreen) -> Unit,
     scrollState: LazyListState
 ) {
     when {
@@ -638,20 +696,20 @@ fun SearchScreen(
                 }
             }
         }
-        error != null && results.isEmpty() -> ErrorScreen(error)
-        results.isEmpty() && loading -> LoadingScreen()
+        error != null && results == null -> ErrorScreen(error)
+        (results == null || results.summaries.isEmpty()) && loading -> LoadingScreen()
         else -> LazyColumn(
             state = scrollState,
             modifier = Modifier.fillMaxSize().padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(bottom = 12.dp)
+                    modifier = Modifier.padding(bottom = 4.dp)
                 ) {
                     Text(
-                        "Results for \"$query\" (${results.size})",
+                        "Results for \"$query\"",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
@@ -666,13 +724,43 @@ fun SearchScreen(
                     }
                 }
             }
-            items(results, key = { it.id }) { song ->
-                SongListItem(
-                    song = song,
-                    onClick = { PlayerManager.playSong(song, results) },
-                    onLike = { LikedSongsManager.toggleLike(song) },
-                    isLiked = LikedSongsManager.isLiked(song.id)
-                )
+            val summaries = results?.summaries.orEmpty()
+            summaries.forEach { summary ->
+                val songItems = summary.items.filterIsInstance<SongItem>()
+                if (songItems.isNotEmpty() && songItems.size == summary.items.size) {
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                summary.title,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                            summary.items.forEach { item ->
+                                val song = item as SongItem
+                                SongListItem(
+                                    song = song,
+                                    onClick = { PlayerManager.playSong(song, songItems) },
+                                    onLike = { LikedSongsManager.toggleLike(song) },
+                                    isLiked = LikedSongsManager.isLiked(song.id)
+                                )
+                            }
+                        }
+                    }
+                } else if (summary.items.isNotEmpty()) {
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(
+                                summary.title,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            MediaRow(items = summary.items, onOpenDetail = onOpenDetail)
+                        }
+                    }
+                }
             }
         }
     }
@@ -706,6 +794,343 @@ fun ExploreScreen() {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(moodItems) { mood -> MoodChip(mood = mood) }
+        }
+    }
+}
+
+// ===================== ALBUM / PLAYLIST / ARTIST =====================
+@Composable
+fun AlbumScreen(
+    browseId: String,
+    fallbackTitle: String,
+    fallbackThumbnail: String?,
+    fallbackArtists: List<Artist>?
+) {
+    var page by remember { mutableStateOf<AlbumPage?>(null) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(browseId) {
+        loading = true
+        error = null
+        YouTube.album(browseId).onSuccess { p ->
+            page = p
+            loading = false
+        }.onFailure { e ->
+            error = mapError(e)
+            loading = false
+        }
+    }
+
+    when {
+        loading -> LoadingScreen()
+        error != null -> ErrorScreen(error!!)
+        else -> {
+            val album = page!!.album
+            val songs = page!!.songs
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier.size(140.dp).clip(RoundedCornerShape(12.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            val thumb = album.thumbnail.ifBlank { fallbackThumbnail }
+                            if (thumb.isNullOrBlank()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                ) {
+                                    Icon(
+                                        Icons.Filled.MusicNote,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.align(Alignment.Center).size(48.dp)
+                                    )
+                                }
+                            } else {
+                                AsyncImage(
+                                    model = thumb,
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(20.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                album.title.ifBlank { fallbackTitle },
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                album.artists?.joinToString { it.name }
+                                    ?: fallbackArtists?.joinToString { it.name }
+                                    ?: "",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            album.year?.let {
+                                Text(
+                                    it.toString(),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            FilledTonalButton(
+                                onClick = { if (songs.isNotEmpty()) PlayerManager.playSong(songs.first(), songs) }
+                            ) {
+                                Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Play All")
+                            }
+                        }
+                    }
+                }
+                items(songs, key = { it.id }) { song ->
+                    SongListItem(
+                        song = song,
+                        onClick = { PlayerManager.playSong(song, songs) },
+                        onLike = { LikedSongsManager.toggleLike(song) },
+                        isLiked = LikedSongsManager.isLiked(song.id)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PlaylistScreen(
+    playlistId: String,
+    fallbackTitle: String,
+    fallbackThumbnail: String?
+) {
+    var page by remember { mutableStateOf<PlaylistPage?>(null) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(playlistId) {
+        loading = true
+        error = null
+        YouTube.playlist(playlistId).completed().onSuccess { p ->
+            page = p
+            loading = false
+        }.onFailure { e ->
+            error = mapError(e)
+            loading = false
+        }
+    }
+
+    when {
+        loading -> LoadingScreen()
+        error != null -> ErrorScreen(error!!)
+        else -> {
+            val playlist = page!!.playlist
+            val songs = page!!.songs
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier.size(140.dp).clip(RoundedCornerShape(12.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            val thumb = playlist.thumbnail ?: fallbackThumbnail
+                            if (thumb.isNullOrBlank()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                ) {
+                                    Icon(
+                                        Icons.Filled.QueueMusic,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.align(Alignment.Center).size(48.dp)
+                                    )
+                                }
+                            } else {
+                                AsyncImage(
+                                    model = thumb,
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(20.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                playlist.title.ifBlank { fallbackTitle },
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                playlist.author?.name ?: "",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            playlist.songCountText?.let {
+                                Text(
+                                    it,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            FilledTonalButton(
+                                onClick = { if (songs.isNotEmpty()) PlayerManager.playSong(songs.first(), songs) }
+                            ) {
+                                Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Play All")
+                            }
+                        }
+                    }
+                }
+                items(songs, key = { it.id }) { song ->
+                    SongListItem(
+                        song = song,
+                        onClick = { PlayerManager.playSong(song, songs) },
+                        onLike = { LikedSongsManager.toggleLike(song) },
+                        isLiked = LikedSongsManager.isLiked(song.id)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ArtistScreen(
+    browseId: String,
+    fallbackTitle: String,
+    fallbackThumbnail: String?,
+    onOpenDetail: (DetailScreen) -> Unit
+) {
+    var page by remember { mutableStateOf<ArtistPage?>(null) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(browseId) {
+        loading = true
+        error = null
+        YouTube.artist(browseId).onSuccess { p ->
+            page = p
+            loading = false
+        }.onFailure { e ->
+            error = mapError(e)
+            loading = false
+        }
+    }
+
+    when {
+        loading -> LoadingScreen()
+        error != null -> ErrorScreen(error!!)
+        else -> {
+            val artist = page!!.artist
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier.size(120.dp).clip(CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            val thumb = artist.thumbnail ?: fallbackThumbnail
+                            if (thumb.isNullOrBlank()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Person,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.align(Alignment.Center).size(48.dp)
+                                    )
+                                }
+                            } else {
+                                AsyncImage(
+                                    model = thumb,
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(20.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                artist.title.ifBlank { fallbackTitle },
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            page!!.description?.let { d ->
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    d,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+                page!!.sections.forEach { section ->
+                    if (section.items.isNotEmpty()) {
+                        item {
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text(
+                                    section.title,
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                                MediaRow(items = section.items, onOpenDetail = onOpenDetail)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -1600,6 +2025,128 @@ fun SongCard(song: SongItem, onClick: () -> Unit) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(song.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis, color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
             Text(song.artists.joinToString { it.name }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+fun MediaCard(
+    title: String,
+    subtitle: String,
+    thumbnail: String?,
+    onClick: () -> Unit,
+    circle: Boolean = false
+) {
+    val imageShape = if (circle) CircleShape else RoundedCornerShape(8.dp)
+    Card(
+        onClick = onClick,
+        modifier = Modifier.width(150.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+            Box(
+                modifier = Modifier.size(130.dp).clip(imageShape),
+                contentAlignment = Alignment.Center
+            ) {
+                if (thumbnail.isNullOrBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    ) {
+                        Icon(
+                            Icons.Filled.MusicNote,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.align(Alignment.Center).size(40.dp)
+                        )
+                    }
+                } else {
+                    AsyncImage(
+                        model = thumbnail,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+fun MediaRow(items: List<YTItem>, onOpenDetail: (DetailScreen) -> Unit) {
+    val songs = items.filterIsInstance<SongItem>()
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        items(items.take(12)) { item ->
+            when (item) {
+                is SongItem -> SongCard(
+                    song = item,
+                    onClick = { PlayerManager.playSong(item, songs) }
+                )
+                is AlbumItem -> MediaCard(
+                    title = item.title,
+                    subtitle = item.artists?.joinToString { it.name } ?: (item.year?.toString() ?: "Album"),
+                    thumbnail = item.thumbnail,
+                    onClick = {
+                        onOpenDetail(
+                            DetailScreen.Album(
+                                browseId = item.browseId,
+                                title = item.title,
+                                thumbnail = item.thumbnail,
+                                artists = item.artists
+                            )
+                        )
+                    }
+                )
+                is PlaylistItem -> MediaCard(
+                    title = item.title,
+                    subtitle = item.author?.name ?: "Playlist",
+                    thumbnail = item.thumbnail,
+                    onClick = {
+                        onOpenDetail(
+                            DetailScreen.Playlist(
+                                playlistId = item.id,
+                                title = item.title,
+                                thumbnail = item.thumbnail
+                            )
+                        )
+                    }
+                )
+                is ArtistItem -> MediaCard(
+                    title = item.title,
+                    subtitle = "Artist",
+                    thumbnail = item.thumbnail,
+                    circle = true,
+                    onClick = {
+                        onOpenDetail(
+                            DetailScreen.Artist(
+                                browseId = item.id,
+                                title = item.title,
+                                thumbnail = item.thumbnail
+                            )
+                        )
+                    }
+                )
+            }
         }
     }
 }
