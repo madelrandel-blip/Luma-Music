@@ -1,7 +1,10 @@
 package com.arturo254.opentune
 
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode as InfiniteRepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -2196,39 +2199,36 @@ private fun AdaptiveText(
 @Composable
 private fun MarqueeLine(text: String, style: TextStyle, color: Color) {
     val textMeasurer = rememberTextMeasurer()
-    var widthPx by remember { mutableStateOf(0) }
-    val textWidthPx = remember(text, style, textMeasurer) {
+    val density = LocalDensity.current
+    val textWidthPx = remember(text, style) {
         textMeasurer.measure(text = text, style = style, softWrap = false, maxLines = 1).size.width.toInt()
     }
-    val overflowPx = remember(textWidthPx, widthPx) { (textWidthPx - widthPx).coerceAtLeast(0) }
-    val offsetX = remember { Animatable(0f) }
-    LaunchedEffect(overflowPx) {
-        if (overflowPx > 0) {
-            val duration = (overflowPx * 12).toInt().coerceIn(2500, 24000)
-            while (true) {
-                offsetX.snapTo(0f)
-                delay(1200)
-                offsetX.animateTo(-overflowPx.toFloat(), animationSpec = tween(durationMillis = duration, easing = LinearEasing))
-                delay(1500)
-                offsetX.animateTo(0f, animationSpec = tween(durationMillis = duration, easing = LinearEasing))
-            }
-        } else {
-            offsetX.snapTo(0f)
-        }
-    }
+    val gap = 32.dp
+    val loopDistance = textWidthPx + with(density) { gap.toPx() }.toInt()
+    val duration = (textWidthPx * 12).coerceIn(2500, 24000)
+    val transition = rememberInfiniteTransition(label = "marquee")
+    val offsetX by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = -loopDistance.toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = duration, easing = LinearEasing),
+            repeatMode = InfiniteRepeatMode.Restart
+        ),
+        label = "marqueeOffset"
+    )
     Box(
         modifier = Modifier.fillMaxWidth().clipToBounds(),
         contentAlignment = Alignment.CenterStart
     ) {
-        Text(
-            text = text,
-            style = style,
-            color = color,
-            maxLines = 1,
-            softWrap = false,
-            overflow = TextOverflow.Clip,
-            modifier = Modifier.offset { IntOffset((-offsetX.value).roundToInt(), 0) }
-        )
+        Row(
+            modifier = Modifier
+                .wrapContentWidth(unbounded = true)
+                .offset { IntOffset(offsetX.roundToInt(), 0) }
+        ) {
+            Text(text = text, style = style, color = color, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
+            Spacer(modifier = Modifier.width(gap))
+            Text(text = text, style = style, color = color, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
+        }
     }
 }
 
