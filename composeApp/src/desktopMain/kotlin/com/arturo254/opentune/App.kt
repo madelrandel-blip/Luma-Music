@@ -607,7 +607,7 @@ fun HomeScreen(onOpenDetail: (DetailScreen) -> Unit) {
             )
         }.distinctBy { it.browseId }
     }
-    val artists = remember(history) {
+    val baseArtists = remember(history) {
         history.flatMap { it.artists }
             .filter { !it.id.isNullOrBlank() }
             .map { artist ->
@@ -620,6 +620,37 @@ fun HomeScreen(onOpenDetail: (DetailScreen) -> Unit) {
                 )
             }
             .distinctBy { it.id }
+    }
+
+    // Real artist photos + more songs from those artists
+    var artists by remember { mutableStateOf<List<ArtistItem>>(emptyList()) }
+    var artistSongs by remember { mutableStateOf<List<SongItem>>(emptyList()) }
+    var loadingMore by remember { mutableStateOf(false) }
+
+    val artistKey = remember(baseArtists) { baseArtists.take(8).joinToString(",") { it.id } }
+    LaunchedEffect(artistKey) {
+        if (baseArtists.isEmpty()) return@LaunchedEffect
+        loadingMore = true
+        val fetchedArtists = mutableListOf<ArtistItem>()
+        val fetchedSongs = mutableListOf<SongItem>()
+        coroutineScope {
+            val deferred = baseArtists.take(8).map { artist ->
+                async { artist to YouTube.artist(artist.id) }
+            }
+            deferred.forEach { d ->
+                val (_, result) = d.await()
+                result.onSuccess { page ->
+                    fetchedArtists += page.artist
+                    page.sections.firstOrNull { section -> section.items.any { it is SongItem } }
+                        ?.items
+                        ?.filterIsInstance<SongItem>()
+                        ?.let { fetchedSongs += it }
+                }
+            }
+        }
+        artists = fetchedArtists.distinctBy { it.id }
+        artistSongs = fetchedSongs.distinctBy { it.id }.filter { s -> history.none { it.id == s.id } }
+        loadingMore = false
     }
 
     when {
@@ -639,6 +670,19 @@ fun HomeScreen(onOpenDetail: (DetailScreen) -> Unit) {
                     MediaRow(items = history, onOpenDetail = onOpenDetail)
                 }
             }
+            if (artistSongs.isNotEmpty()) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            "More From Your Artists",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        MediaRow(items = artistSongs, onOpenDetail = onOpenDetail)
+                    }
+                }
+            }
             if (albums.isNotEmpty()) {
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -652,7 +696,7 @@ fun HomeScreen(onOpenDetail: (DetailScreen) -> Unit) {
                     }
                 }
             }
-            if (artists.isNotEmpty()) {
+            if (baseArtists.isNotEmpty()) {
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
@@ -661,7 +705,7 @@ fun HomeScreen(onOpenDetail: (DetailScreen) -> Unit) {
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground
                         )
-                        MediaRow(items = artists, onOpenDetail = onOpenDetail)
+                        MediaRow(items = if (artists.isNotEmpty()) artists else baseArtists, onOpenDetail = onOpenDetail)
                     }
                 }
             }
