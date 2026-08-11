@@ -1,9 +1,16 @@
 package com.arturo254.opentune
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.drag
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -17,14 +24,23 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.*
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -57,8 +73,11 @@ import java.util.Locale
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
 import kotlinx.coroutines.Dispatchers
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -864,21 +883,48 @@ fun SearchScreen(
 }
 
 // ===================== EXPLORE =====================
+private data class ExploreSection(val title: String, val items: List<YTItem>)
+
+private object ExploreCache {
+    var sections: List<ExploreSection>? = null
+    var error: String? = null
+}
+
 @Composable
 fun ExploreScreen(onOpenDetail: (DetailScreen) -> Unit) {
-    var sections by remember { mutableStateOf<List<com.arturo254.opentune.innertube.pages.HomePage.Section>>(emptyList()) }
-    var loading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var sections by remember { mutableStateOf(ExploreCache.sections ?: emptyList()) }
+    var loading by remember { mutableStateOf(ExploreCache.sections == null) }
+    var error by remember { mutableStateOf<String?>(ExploreCache.error) }
 
     LaunchedEffect(Unit) {
+        if (ExploreCache.sections != null) return@LaunchedEffect
         loading = true
-        YouTube.home().onSuccess { page ->
-            sections = page.sections
-            loading = false
+        error = null
+        val allSections = mutableListOf<ExploreSection>()
+
+        val homeResult = YouTube.home()
+        homeResult.onSuccess { page ->
+            // Base home shelves
+            allSections += page.sections.map { ExploreSection(it.title, it.items) }
+            // Each home chip (Relax, Fiesta, Entrenamiento, ...) loads its own shelves
+            page.chips.orEmpty().forEach { chip ->
+                val endpoint = chip.endpoint ?: return@forEach
+                YouTube.browse(endpoint.browseId, endpoint.params).onSuccess { browseResult ->
+                    browseResult.items.forEach { item ->
+                        allSections += ExploreSection(item.title ?: chip.title, item.items)
+                    }
+                }.onFailure { e ->
+                    error = mapError(e)
+                }
+            }
         }.onFailure { e ->
             error = mapError(e)
-            loading = false
         }
+
+        sections = allSections.distinctBy { it.title }
+        ExploreCache.sections = sections
+        ExploreCache.error = error
+        loading = false
     }
 
     when {
@@ -2093,6 +2139,99 @@ fun SettingsIcon(icon: ImageVector, accentColor: Color) {
 }
 
 // ===================== SHARED COMPONENTS =====================
+private val MediaCardWidth = 160.dp
+
+@OptIn(ExperimentalTextApi::class)
+@Composable
+private fun AdaptiveText(
+    text: String,
+    style: TextStyle,
+    color: Color,
+    maxLines: Int
+) {
+    val density = LocalDensity.current
+    val textMeasurer = rememberTextMeasurer()
+    var widthPx by remember { mutableStateOf(0) }
+    val overflows = remember(text, widthPx, style, maxLines) {
+        if (widthPx > 0) {
+            val result = textMeasurer.measure(
+                text = text,
+                style = style,
+                overflow = TextOverflow.Clip,
+                softWrap = true,
+                maxLines = maxLines,
+                constraints = Constraints(maxWidth = widthPx)
+            )
+            result.didOverflowHeight || result.lineCount > maxLines
+        } else {
+            false
+        }
+    }
+    val lineHeightPx = remember(style, textMeasurer) {
+        textMeasurer.measure(text = "Wg", style = style, softWrap = false, maxLines = 1).size.height
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(with(density) { (lineHeightPx * maxLines).toDp() })
+            .onSizeChanged { widthPx = it.width },
+        contentAlignment = Alignment.CenterStart
+    ) {
+        if (overflows) {
+            MarqueeLine(text = text, style = style, color = color)
+        } else {
+            Text(
+                text = text,
+                style = style,
+                color = color,
+                minLines = maxLines,
+                maxLines = maxLines,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalTextApi::class)
+@Composable
+private fun MarqueeLine(text: String, style: TextStyle, color: Color) {
+    val textMeasurer = rememberTextMeasurer()
+    var widthPx by remember { mutableStateOf(0) }
+    val textWidthPx = remember(text, style, textMeasurer) {
+        textMeasurer.measure(text = text, style = style, softWrap = false, maxLines = 1).size.width.toInt()
+    }
+    val overflowPx = remember(textWidthPx, widthPx) { (textWidthPx - widthPx).coerceAtLeast(0) }
+    val offsetX = remember { Animatable(0f) }
+    LaunchedEffect(overflowPx) {
+        if (overflowPx > 0) {
+            val duration = (overflowPx * 12).toInt().coerceIn(2500, 24000)
+            while (true) {
+                offsetX.snapTo(0f)
+                delay(1200)
+                offsetX.animateTo(-overflowPx.toFloat(), animationSpec = tween(durationMillis = duration, easing = LinearEasing))
+                delay(1500)
+                offsetX.animateTo(0f, animationSpec = tween(durationMillis = duration, easing = LinearEasing))
+            }
+        } else {
+            offsetX.snapTo(0f)
+        }
+    }
+    Box(
+        modifier = Modifier.fillMaxWidth().clipToBounds(),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Text(
+            text = text,
+            style = style,
+            color = color,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip,
+            modifier = Modifier.offset { IntOffset((-offsetX.value).roundToInt(), 0) }
+        )
+    }
+}
+
 @Composable
 fun SongCard(song: SongItem, onClick: () -> Unit) {
     val isCurrent = NowPlayingState.currentSongId.value == song.id
@@ -2100,7 +2239,7 @@ fun SongCard(song: SongItem, onClick: () -> Unit) {
 
     Card(
         onClick = onClick,
-        modifier = Modifier.width(170.dp),
+        modifier = Modifier.width(MediaCardWidth),
         colors = CardDefaults.cardColors(
             containerColor = if (isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceContainer
         ),
@@ -2132,8 +2271,19 @@ fun SongCard(song: SongItem, onClick: () -> Unit) {
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Text(song.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis, color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-            Text(song.artists.joinToString { it.name }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            AdaptiveText(
+                text = song.title,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                maxLines = 2
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            AdaptiveText(
+                text = song.artists.joinToString { it.name },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
         }
     }
 }
@@ -2149,13 +2299,13 @@ fun MediaCard(
     val imageShape = if (circle) CircleShape else RoundedCornerShape(8.dp)
     Card(
         onClick = onClick,
-        modifier = Modifier.width(150.dp),
+        modifier = Modifier.width(MediaCardWidth),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(10.dp)) {
             Box(
-                modifier = Modifier.size(130.dp).clip(imageShape),
+                modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(imageShape),
                 contentAlignment = Alignment.Center
             ) {
                 if (thumbnail.isNullOrBlank()) {
@@ -2181,21 +2331,18 @@ fun MediaCard(
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurface
+            AdaptiveText(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2
             )
             Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                subtitle,
+            AdaptiveText(
+                text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                maxLines = 1
             )
         }
     }
@@ -2204,8 +2351,32 @@ fun MediaCard(
 @Composable
 fun MediaRow(items: List<YTItem>, onOpenDetail: (DetailScreen) -> Unit) {
     val songs = items.filterIsInstance<SongItem>()
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        items(items.take(12)) { item ->
+    val listState = rememberLazyListState()
+    val scrollScope = rememberCoroutineScope()
+    Box {
+        LazyRow(
+            state = listState,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.pointerInput(listState) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    var totalDrag = 0f
+                    var dragging = false
+                    drag(down.id) {
+                        val dx = it.position.x - it.previousPosition.x
+                        totalDrag += dx
+                        if (!dragging && abs(totalDrag) > viewConfiguration.touchSlop) {
+                            dragging = true
+                        }
+                        if (dragging) {
+                            it.consume()
+                            scrollScope.launch { listState.scrollBy(-dx) }
+                        }
+                    }
+                }
+            }
+        ) {
+            items(items.take(12)) { item ->
             when (item) {
                 is SongItem -> SongCard(
                     song = item,
@@ -2257,9 +2428,19 @@ fun MediaRow(items: List<YTItem>, onOpenDetail: (DetailScreen) -> Unit) {
                 )
             }
         }
+        }
+        HorizontalScrollbar(
+            adapter = rememberScrollbarAdapter(listState),
+            modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter),
+            style = LocalScrollbarStyle.current.copy(
+                minimalHeight = 44.dp,
+                thickness = 10.dp,
+                shape = RoundedCornerShape(5.dp),
+                hoverDurationMillis = 100
+            )
+        )
     }
 }
-
 @Composable
 fun SongListItem(
     song: SongItem,
@@ -2352,9 +2533,9 @@ fun SongListItem(
 }
 
 @Composable
-fun MoodChip(mood: com.arturo254.opentune.innertube.pages.MoodAndGenres.Item) {
+fun MoodChip(mood: com.arturo254.opentune.innertube.pages.MoodAndGenres.Item, modifier: Modifier = Modifier) {
     Card(
-        modifier = Modifier.fillMaxWidth().height(60.dp),
+        modifier = modifier.height(60.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
         shape = RoundedCornerShape(12.dp)
     ) {
