@@ -54,7 +54,10 @@ object PlayerManager {
     fun addListener(l: () -> Unit) { listeners.add(l) }
     fun removeListener(l: () -> Unit) { listeners.remove(l) }
 
-    private fun notifyChange() { listeners.forEach { it() } }
+    private fun notifyChange() {
+        DiscordRpcManager.onSongChanged(currentSong, isPlaying)
+        listeners.forEach { it() }
+    }
 
     fun playSong(song: SongItem, queueSongs: List<SongItem> = emptyList()) {
         val gen = generationCounter.incrementAndGet()
@@ -357,6 +360,7 @@ object PlayerManager {
     init {
         ytDlpPath = findYtDlp()
         ffmpegPath = findFfmpeg()
+        DiscordRpcManager.start()
     }
 
     private fun bundledExe(name: String): String? {
