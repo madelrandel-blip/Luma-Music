@@ -1,4 +1,8 @@
-# Luma Music
+<p align="center">
+  <img src="composeApp/src/desktopMain/resources/icon.png" width="64">
+</p>
+
+<h1 align="center">Luma Music</h1>
 
 Desktop client for YouTube Music, built with **Kotlin** and **Compose Multiplatform (Compose Desktop)**.
 
