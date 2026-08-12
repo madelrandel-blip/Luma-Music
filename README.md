@@ -8,6 +8,10 @@ Desktop client for YouTube Music, built with **Kotlin** and **Compose Multiplatf
 
 Luma Music is a desktop port of the [OpenTune](https://github.com/Arturo254/OpenTune) Android app (by Arturo254), reusing its `innertube` module to talk to YouTube Music.
 
+## 📸 Captures
+
+![Inicio](composeApp/src/desktopMain/resources/explore.png)
+
 ## Features
 
 - Browse home, search and explore (moods & genres) content
