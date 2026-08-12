@@ -2205,7 +2205,7 @@ private fun MarqueeLine(text: String, style: TextStyle, color: Color) {
     }
     val gap = 32.dp
     val loopDistance = textWidthPx + with(density) { gap.toPx() }.toInt()
-    val duration = (textWidthPx * 12).coerceIn(2500, 24000)
+    val duration = (textWidthPx * 17.4).toInt().coerceIn(2500, 24000)
     val transition = rememberInfiniteTransition(label = "marquee")
     val offsetX by transition.animateFloat(
         initialValue = 0f,
