@@ -1,8 +1,22 @@
-# Luma Music
+<p align="center">
+  <img src="composeApp/src/desktopMain/resources/icon.png" width="64">
+</p>
+
+<h1 align="center">Luma Music</h1>
+
+<p align="center">
+  <a href="https://discord.gg/YymhhUy4fH">
+    <img src="https://img.shields.io/discord/1419649386656563324?style=for-the-badge&logo=discord&label=Discord&color=5865F2" alt="Discord">
+  </a>
+</p>
 
 Desktop client for YouTube Music, built with **Kotlin** and **Compose Multiplatform (Compose Desktop)**.
 
 Luma Music is a desktop port of the [OpenTune](https://github.com/Arturo254/OpenTune) Android app (by Arturo254), reusing its `innertube` module to talk to YouTube Music.
+
+## 📸 Captures
+
+![Inicio](composeApp/src/desktopMain/resources/explore.png)
 
 ## Features
 
