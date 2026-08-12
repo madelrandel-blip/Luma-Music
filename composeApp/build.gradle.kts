@@ -28,6 +28,9 @@ kotlin {
             implementation("io.coil-kt.coil3:coil-compose:3.4.0")
             implementation("io.coil-kt.coil3:coil-network-okhttp:3.4.0")
             implementation("org.jetbrains.skiko:skiko-awt-runtime-windows-x64:0.144.6")
+            implementation("com.github.MinnDevelopment:java-discord-rpc:2.0.2") {
+                exclude(group = "club.minnced", module = "discord-rpc-release")
+            }
 
             implementation(project(":innertube"))
         }
