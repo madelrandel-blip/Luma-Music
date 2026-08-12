@@ -129,6 +129,7 @@ sealed class SettingsSubScreen(val label: String) {
 @Composable
 fun App() {
     LumaMusicTheme {
+        var updateAvailable by remember { mutableStateOf<LatestRelease?>(null) }
         var currentScreen by remember { mutableStateOf<Screen>(Screen.Home) }
         var settingsSubScreen by remember { mutableStateOf<SettingsSubScreen>(SettingsSubScreen.Main) }
         var detailScreen by remember { mutableStateOf<DetailScreen?>(null) }
@@ -194,6 +195,11 @@ fun App() {
         LaunchedEffect(Unit) {
             NowPlayingState.update()
             PlayerManager.addListener { NowPlayingState.update() }
+        }
+
+        // Check GitHub for a newer version on startup
+        LaunchedEffect(Unit) {
+            updateAvailable = UpdateChecker.checkForUpdate()
         }
 
         Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -290,6 +296,25 @@ fun App() {
                     }
                 }
             }
+        }
+
+        updateAvailable?.let { release ->
+            AlertDialog(
+                onDismissRequest = { updateAvailable = null },
+                title = { Text("Nueva versión disponible") },
+                text = { Text("Hay una versión más reciente de Luma Music disponible (${release.tagName}). ¿Quieres actualizar ahora?") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        try {
+                            java.awt.Desktop.getDesktop().browse(java.net.URI(release.htmlUrl))
+                        } catch (_: Exception) {}
+                        updateAvailable = null
+                    }) { Text("Actualizar") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { updateAvailable = null }) { Text("Seguir con la versión actual") }
+                }
+            )
         }
 
         PlayerBar()
@@ -1590,15 +1615,13 @@ fun SettingsScreen(onNavigate: (SettingsSubScreen) -> Unit) {
         }
 
         item {
-            SettingsGroupCard("Privacy") {
-                SettingsNavRow(Icons.Filled.Security, "Privacy", if (DesktopPreferences.pauseListenHistory) "History paused" else "Pause listen history", MaterialTheme.colorScheme.error) { onNavigate(SettingsSubScreen.Privacy) }
-            }
-        }
-
-        item {
             SettingsGroupCard("System") {
                 SettingsNavRow(Icons.Filled.Science, "Experiment Settings", "Misc", MaterialTheme.colorScheme.tertiary) {}
-                SettingsNavRow(Icons.Filled.Update, "Updates", "Version 1.0.0", MaterialTheme.colorScheme.primary) {}
+                SettingsNavRow(Icons.Filled.Update, "Updates", "Version $APP_VERSION", MaterialTheme.colorScheme.primary) {
+                    try {
+                        java.awt.Desktop.getDesktop().browse(java.net.URI("https://github.com/$GITHUB_REPO/releases"))
+                    } catch (_: Exception) {}
+                }
                 SettingsNavRow(Icons.Filled.Info, "About", "Luma Music", MaterialTheme.colorScheme.onSurfaceVariant) { onNavigate(SettingsSubScreen.About) }
             }
         }
@@ -1982,7 +2005,7 @@ fun AboutScreen(onBack: () -> Unit) {
     ) {
         item {
             SettingsGroupCard("App") {
-                SettingsInfoRow(Icons.Filled.Info, "Version", "1.0.0", MaterialTheme.colorScheme.primary)
+                SettingsInfoRow(Icons.Filled.Info, "Version", APP_VERSION, MaterialTheme.colorScheme.primary)
                 SettingsInfoRow(Icons.Filled.Code, "Engine", "Compose Desktop + Skiko", MaterialTheme.colorScheme.secondary)
                 SettingsInfoRow(Icons.Filled.PlayArrow, "Player", "yt-dlp + ffmpeg + javax.sound", MaterialTheme.colorScheme.tertiary)
                 SettingsInfoRow(Icons.Filled.Storage, "Cache", "~/.opentune/cache/", MaterialTheme.colorScheme.onSurfaceVariant)
