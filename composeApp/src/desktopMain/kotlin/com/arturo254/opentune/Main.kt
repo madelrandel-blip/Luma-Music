@@ -11,6 +11,7 @@ import androidx.compose.ui.window.rememberWindowState
 import javax.imageio.ImageIO
 
 fun main() = application {
+    AccountManager.initialize()
     val windowState = rememberWindowState(width = 1000.dp, height = 650.dp)
     var wasFullscreen = DesktopPreferences.fullscreenPlayer
 

@@ -27,6 +27,10 @@ kotlin {
 
             implementation("io.coil-kt.coil3:coil-compose:3.4.0")
             implementation("io.coil-kt.coil3:coil-network-okhttp:3.4.0")
+            implementation("org.xerial:sqlite-jdbc:3.47.1.0")
+            implementation("net.java.dev.jna:jna:5.13.0")
+            implementation("net.java.dev.jna:jna-platform:5.13.0")
+            implementation("me.friwi:jcefmaven:146.0.10")
             implementation("org.jetbrains.skiko:skiko-awt-runtime-windows-x64:0.144.6")
             implementation("com.github.MinnDevelopment:java-discord-rpc:2.0.2") {
                 exclude(group = "club.minnced", module = "discord-rpc-release")
@@ -66,6 +70,10 @@ compose.desktop {
             "-Xmx256m",
             "-XX:+UseG1GC",
             "-XX:MaxGCPauseMillis=200",
+            "--add-exports=java.base/java.lang=ALL-UNNAMED",
+            "--add-exports=java.desktop/sun.awt=ALL-UNNAMED",
+            "--add-exports=java.desktop/sun.java2d=ALL-UNNAMED",
+            "--add-opens=java.desktop/sun.awt=ALL-UNNAMED",
         )
     }
 }

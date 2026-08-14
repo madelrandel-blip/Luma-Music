@@ -21,6 +21,7 @@ object DesktopPreferences {
     private var _persistentQueue = true
     private var _maxCacheSizeMB = 500L
     private var _fullscreenPlayer = false
+    private var _volume = 1.0f
 
     var themePaletteId by mutableStateOf("default"); private set
     var pureBlack by mutableStateOf(false); private set
@@ -35,6 +36,7 @@ object DesktopPreferences {
     var persistentQueue by mutableStateOf(true); private set
     var maxCacheSizeMB by mutableStateOf(500L); private set
     var fullscreenPlayer by mutableStateOf(false); private set
+    var volume by mutableStateOf(1.0f); private set
 
     init { load() }
 
@@ -54,6 +56,7 @@ object DesktopPreferences {
             persistentQueue = props.getProperty("persistentQueue", "true").toBoolean()
             maxCacheSizeMB = props.getProperty("maxCacheSizeMB", "500").toLongOrNull() ?: 500
             fullscreenPlayer = props.getProperty("fullscreenPlayer", "false").toBoolean()
+            volume = props.getProperty("volume", "1.0").toFloatOrNull()?.coerceIn(0f, 1f) ?: 1.0f
         } catch (_: Exception) {}
     }
 
@@ -73,6 +76,7 @@ object DesktopPreferences {
             props.setProperty("persistentQueue", persistentQueue.toString())
             props.setProperty("maxCacheSizeMB", maxCacheSizeMB.toString())
             props.setProperty("fullscreenPlayer", fullscreenPlayer.toString())
+            props.setProperty("volume", volume.toString())
             file.outputStream().use { props.store(it, null) }
         } catch (_: Exception) {}
     }
@@ -90,6 +94,7 @@ object DesktopPreferences {
     fun updatePersistentQueue(v: Boolean) { persistentQueue = v; save() }
     fun updateMaxCacheSizeMB(v: Long) { maxCacheSizeMB = v; save() }
     fun updateFullscreenPlayer(v: Boolean) { fullscreenPlayer = v; save() }
+    fun updateVolume(v: Float) { volume = v.coerceIn(0f, 1f); save() }
 }
 
 data class DesktopPalette(

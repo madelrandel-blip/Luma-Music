@@ -1,6 +1,7 @@
 package com.arturo254.opentune.player
 
 import com.arturo254.opentune.DesktopPreferences
+import com.arturo254.opentune.tr
 import com.arturo254.opentune.innertube.models.SongItem
 import com.arturo254.opentune.library.CacheMetadataManager
 import com.arturo254.opentune.library.DownloadsManager
@@ -15,6 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioSystem
 import javax.sound.sampled.DataLine
+import javax.sound.sampled.FloatControl
 import javax.sound.sampled.SourceDataLine
 import kotlin.random.Random
 
@@ -38,6 +40,8 @@ object PlayerManager {
     var isLoading: Boolean = false; private set
     var error: String? = null; private set
     var repeatMode: RepeatMode = RepeatMode.SEQUENTIAL; private set
+    var volume: Float = 1.0f; private set
+    var isMuted: Boolean = false; private set
 
     val queue = CopyOnWriteArrayList<SongItem>()
     var currentIndex: Int = -1; private set
@@ -99,15 +103,15 @@ object PlayerManager {
 
                 val isLocal = song.id.startsWith("local:")
                 if (!isLocal) {
-                    if (ytDlpPath == null) { error = "yt-dlp not found"; isLoading = false; notifyChange(); return@launch }
-                    if (ffmpegPath == null) { error = "ffmpeg not found"; isLoading = false; notifyChange(); return@launch }
+                    if (ytDlpPath == null) { error = tr("yt-dlp no encontrado"); isLoading = false; notifyChange(); return@launch }
+                    if (ffmpegPath == null) { error = tr("ffmpeg no encontrado"); isLoading = false; notifyChange(); return@launch }
                 }
                 if (currentGeneration != gen) return@launch
 
                 val audioFile = if (isLocal) {
                     val f = File(song.id.removePrefix("local:"))
                     if (!f.exists() || !f.isFile) {
-                        error = "File not found"
+                        error = tr("Archivo no encontrado")
                         isLoading = false
                         notifyChange()
                         return@launch
@@ -153,7 +157,7 @@ object PlayerManager {
             try {
                 val f = downloadAudio(videoId, videoUrl)
                 if (f != null) return f
-                lastError = "Download failed"
+                lastError = tr("Descarga fallida")
                 if (attempt < MAX_RETRIES) delay(500)
             } catch (e: Exception) {
                 lastError = e.message
@@ -161,7 +165,7 @@ object PlayerManager {
             }
         }
         if (currentGeneration == gen && lastError != null) {
-            error = "Audio error: $lastError"
+            error = tr("Error de audio: {0}", lastError)
             isLoading = false
             notifyChange()
         }
@@ -235,6 +239,47 @@ object PlayerManager {
             RepeatMode.SHUFFLE -> RepeatMode.LOOP
             RepeatMode.LOOP -> RepeatMode.SEQUENTIAL
         }
+        notifyChange()
+    }
+
+    private var volumeBeforeMute: Float = 1.0f
+
+    fun setVolume(v: Float) {
+        volume = v.coerceIn(0f, 1f)
+        if (isMuted && volume > 0f) isMuted = false
+        activeThread?.applyVolume()
+        notifyChange()
+    }
+
+    fun persistVolume() {
+        DesktopPreferences.updateVolume(volume)
+    }
+
+    fun toggleMute() {
+        isMuted = !isMuted
+        if (isMuted) volumeBeforeMute = volume
+        activeThread?.applyVolume()
+        notifyChange()
+    }
+
+    fun effectiveVolume(): Float = if (isMuted) 0f else volume
+
+    fun jumpToIndex(index: Int) {
+        if (index < 0 || index >= queue.size) return
+        playSong(queue[index])
+    }
+
+    fun removeFromQueue(index: Int) {
+        if (queue.isEmpty() || index < 0 || index >= queue.size) return
+        queue.removeAt(index)
+        if (index < currentIndex) currentIndex--
+        notifyChange()
+    }
+
+    fun clearQueue() {
+        if (queue.isEmpty()) return
+        queue.clear()
+        currentIndex = -1
         notifyChange()
     }
 
@@ -358,6 +403,7 @@ object PlayerManager {
     }
 
     init {
+        volume = DesktopPreferences.volume
         ytDlpPath = findYtDlp()
         ffmpegPath = findFfmpeg()
         DiscordRpcManager.start()
@@ -419,10 +465,30 @@ object PlayerManager {
         @Volatile private var paused = false
         @Volatile var abandoned = false; private set
         private var process: Process? = null
+        private var gainControl: FloatControl? = null
 
         fun doPause() { paused = true }
         fun doResume() { paused = false }
         fun abandon() { abandoned = true; process?.destroyForcibly() }
+
+        fun applyVolume() {
+            val g = gainControl ?: return
+            val v = PlayerManager.effectiveVolume()
+            if (v <= 0.001f) {
+                runCatching { g.value = g.minimum }.getOrNull()
+                return
+            }
+            // Perceptual curve so mid-position is actually medium loudness
+            val actual = (v * v).coerceIn(0.001f, 1f)
+            runCatching {
+                if (g.type == FloatControl.Type.VOLUME) {
+                    g.value = actual.coerceIn(g.minimum, g.maximum)
+                } else {
+                    val dB = 20f * kotlin.math.log10(actual.toDouble()).toFloat()
+                    g.value = dB.coerceIn(g.minimum, g.maximum)
+                }
+            }.getOrNull()
+        }
 
         private fun isActive(): Boolean = !abandoned && PlayerManager.currentGeneration == generation
 
@@ -473,7 +539,7 @@ object PlayerManager {
             } catch (e: InterruptedException) { process?.destroyForcibly() }
             catch (e: Exception) {
                 process?.destroyForcibly()
-                if (isActive()) { PlayerManager.error = "Playback error: ${e.message}"; PlayerManager.isPlaying = false; PlayerManager.notifyChange() }
+                if (isActive()) { PlayerManager.error = tr("Error de reproducción: {0}", e.message); PlayerManager.isPlaying = false; PlayerManager.notifyChange() }
             } finally {
                 try { line?.drain() } catch (_: Exception) {}
                 try { line?.close() } catch (_: Exception) {}
@@ -516,6 +582,10 @@ object PlayerManager {
             val line = AudioSystem.getLine(info) as SourceDataLine
             line.open(audioFormat, 16384)
             line.start()
+            gainControl = runCatching { line.getControl(FloatControl.Type.MASTER_GAIN) as FloatControl }
+                .getOrNull()
+                ?: runCatching { line.getControl(FloatControl.Type.VOLUME) as FloatControl }.getOrNull()
+            applyVolume()
 
             val frameSize = channels * bitsPerSample / 8
             val bytesPerSecond = sampleRate * frameSize
