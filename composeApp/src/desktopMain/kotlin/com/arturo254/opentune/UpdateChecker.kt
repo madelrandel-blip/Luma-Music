@@ -8,7 +8,7 @@ import kotlinx.serialization.json.Json
 import java.net.HttpURLConnection
 import java.net.URL
 
-const val APP_VERSION = "2.0.1"
+const val APP_VERSION = "3.0.0"
 const val GITHUB_REPO = "madelrandel-blip/Luma-Music"
 
 @Serializable

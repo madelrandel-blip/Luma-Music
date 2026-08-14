@@ -48,7 +48,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "LumaMusic"
-            packageVersion = "2.0.1"
+            packageVersion = "3.0.0"
             description = "Luma Music - YouTube Music desktop client"
             vendor = "Luma Music"
 
