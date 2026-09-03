@@ -39,3 +39,37 @@ Luma Music es una versión de escritorio de la app de Android [OpenTune](https:/
 
 ```bash
 ./gradlew composeApp:run
+```
+
+En Windows, usa `gradlew.bat`:
+
+```bat
+gradlew.bat composeApp:run
+```
+
+Compila un paquete distribuible:
+
+```bash
+./gradlew composeApp:packageDistributionForCurrentOS
+```
+
+## Estructura del proyecto
+
+- `composeApp/` — la UI de escritorio y el reproductor (Compose Desktop)
+- `innertube/` — cliente de la API de YouTube Music (del proyecto original OpenTune)
+
+## Datos y privacidad
+
+Los ajustes, canciones favoritas, metadatos de descargas y caché de audio se guardan localmente en `~/.opentune/`.
+
+## Firma de código
+
+Los lanzamientos de Windows se firman con un certificado proporcionado por [Necessary Code Signing](https://sign.necessary.nu). Esto elimina los avisos de SmartScreen cuando los usuarios descargan Luma Music.
+
+Firma de código gratuita proporcionada por Necessary Code Signing.
+
+Ver [CODESIGN.md](CODESIGN.md) para más detalles.
+
+## Licencia
+
+GPL-3.0. El módulo `innertube` proviene originalmente de [OpenTune](https://github.com/Arturo254/OpenTune) (GPL-3.0).

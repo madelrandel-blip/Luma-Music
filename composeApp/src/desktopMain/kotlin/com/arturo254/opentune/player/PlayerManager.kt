@@ -329,7 +329,7 @@ object PlayerManager {
 
                 // Copy to downloads folder
                 val downloadsDir = DownloadsManager.getDownloadsDir()
-                val destFile = File(downloadsDir, "${song.id}.webm")
+                val destFile = File(downloadsDir, "${song.id}${audioFile.extension.takeIf { it.isNotBlank() }?.let { ".$it" } ?: ".webm"}")
                 if (!destFile.exists()) {
                     audioFile.copyTo(destFile, overwrite = true)
                 }
@@ -368,15 +368,16 @@ object PlayerManager {
     private fun cacheFile(videoId: String) = File(cacheDir, "$videoId.webm")
 
     private fun downloadAudio(videoId: String, videoUrl: String): File? {
-        val outFile = cacheFile(videoId)
-        if (outFile.exists() && outFile.length() > 0) return outFile
+        // Check for any cached variant of this video first
+        getCachedFile(videoId)?.takeIf { it.exists() && it.length() > 0 }?.let { return it }
 
+        val outBase = File(cacheDir, "$videoId.webm").absolutePath.replace("\\", "/").removeSuffix(".webm")
         val cmd = listOf(
             ytDlpPath!!, "--no-warnings",
-            "-f", "ba[ext=webm]/ba",
+            "-f", "ba[ext=m4a]/ba[ext=webm]/ba",
             "--no-playlist",
             "--concurrent-fragments", "4",
-            "-o", outFile.absolutePath.replace("\\", "/"),
+            "-o", outBase + ".%(ext)s",
             videoUrl
         )
         val process = ProcessBuilder(cmd).redirectErrorStream(true).start()
@@ -388,11 +389,11 @@ object PlayerManager {
         val exitCode = process.waitFor()
         drainThread.join(2000)
 
-        return if (exitCode == 0 && outFile.exists() && outFile.length() > 0) outFile else null
+        return getCachedFile(videoId)?.takeIf { it.exists() && it.length() > 0 }
     }
 
     private fun cleanupCache() {
-        val files = cacheDir.listFiles()?.filter { it.name.endsWith(".webm") }
+        val files = cacheDir.listFiles()?.filter { it.name.endsWith(".webm") || it.name.endsWith(".m4a") || it.name.endsWith(".mp4") }
             ?.sortedByDescending { it.lastModified() } ?: return
         var totalSize = files.sumOf { it.length() }
         val maxSizeBytes = MAX_CACHE_SIZE_MB * 1024 * 1024

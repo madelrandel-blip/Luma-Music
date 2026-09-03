@@ -1,0 +1,11 @@
+{
+  "ProjectSettings": {
+    "ProjectSlug": "luma-music",
+    "RepositoryUrl": "https://github.com/madelrandel-blip/Luma-Music"
+  },
+  "SigningService": {
+    "name": "Necessary Code Signing",
+    "url": "https://sign.necessary.nu",
+    "method": "osslsigncode"
+  }
+}
