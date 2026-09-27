@@ -138,9 +138,19 @@ jobs:
           java-version: '21'
 
       # Installs the Android SDK platform/build-tools this project needs (compileSdk/targetSdk
-      # 36) and accepts the SDK licenses non-interactively.
+      # 36) and accepts the SDK licenses non-interactively. Does NOT request the deprecated
+      # "tools" package (android-actions/setup-android@v3 tried to install it by default and
+      # failed, since current command-line tools no longer provide it) - only the specific
+      # platform-tools/platform/build-tools packages this project actually needs.
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 12266719
+          packages: |
+            platform-tools
+            platforms;android-36
+            build-tools;36.0.0
+          accept-android-sdk-licenses: true
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
