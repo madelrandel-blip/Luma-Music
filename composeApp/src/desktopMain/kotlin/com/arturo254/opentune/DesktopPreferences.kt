@@ -22,6 +22,9 @@ object DesktopPreferences {
     private var _maxCacheSizeMB = 500L
     private var _fullscreenPlayer = false
     private var _volume = 1.0f
+    private var _downloadsPath = ""
+    private var _partyModeEnabled = false
+    private var _partyIdentity = "youtube"
 
     var themePaletteId by mutableStateOf("default"); private set
     var pureBlack by mutableStateOf(false); private set
@@ -37,6 +40,12 @@ object DesktopPreferences {
     var maxCacheSizeMB by mutableStateOf(500L); private set
     var fullscreenPlayer by mutableStateOf(false); private set
     var volume by mutableStateOf(1.0f); private set
+    var downloadsPath by mutableStateOf(""); private set
+    /** Experimental setting - shows/enables Party Mode's entry points once turned on. */
+    var partyModeEnabled by mutableStateOf(false); private set
+    /** Which identity (name+photo) to show other people in Party Mode when more than one is
+     * available: "youtube" (the linked account) or "guest" (the local guest profile). */
+    var partyIdentity by mutableStateOf("youtube"); private set
 
     init { load() }
 
@@ -57,6 +66,9 @@ object DesktopPreferences {
             maxCacheSizeMB = props.getProperty("maxCacheSizeMB", "500").toLongOrNull() ?: 500
             fullscreenPlayer = props.getProperty("fullscreenPlayer", "false").toBoolean()
             volume = props.getProperty("volume", "1.0").toFloatOrNull()?.coerceIn(0f, 1f) ?: 1.0f
+            downloadsPath = props.getProperty("downloadsPath", "")
+            partyModeEnabled = props.getProperty("partyModeEnabled", "false").toBoolean()
+            partyIdentity = props.getProperty("partyIdentity", "youtube")
         } catch (_: Exception) {}
     }
 
@@ -77,6 +89,9 @@ object DesktopPreferences {
             props.setProperty("maxCacheSizeMB", maxCacheSizeMB.toString())
             props.setProperty("fullscreenPlayer", fullscreenPlayer.toString())
             props.setProperty("volume", volume.toString())
+            props.setProperty("downloadsPath", downloadsPath)
+            props.setProperty("partyModeEnabled", partyModeEnabled.toString())
+            props.setProperty("partyIdentity", partyIdentity)
             file.outputStream().use { props.store(it, null) }
         } catch (_: Exception) {}
     }
@@ -95,6 +110,9 @@ object DesktopPreferences {
     fun updateMaxCacheSizeMB(v: Long) { maxCacheSizeMB = v; save() }
     fun updateFullscreenPlayer(v: Boolean) { fullscreenPlayer = v; save() }
     fun updateVolume(v: Float) { volume = v.coerceIn(0f, 1f); save() }
+    fun updateDownloadsPath(v: String) { downloadsPath = v; save() }
+    fun updatePartyModeEnabled(v: Boolean) { partyModeEnabled = v; save() }
+    fun updatePartyIdentity(v: String) { partyIdentity = v; save() }
 }
 
 data class DesktopPalette(

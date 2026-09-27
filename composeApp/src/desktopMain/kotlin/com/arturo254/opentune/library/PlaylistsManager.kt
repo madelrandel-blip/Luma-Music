@@ -64,6 +64,35 @@ object PlaylistsManager {
         }
     }
 
+    /** Moves a song within a playlist (e.g. from up/down buttons in the UI). No-op if either index is out of range. */
+    fun moveSong(id: String, fromIndex: Int, toIndex: Int) {
+        val idx = _playlists.indexOfFirst { it.id == id }
+        if (idx < 0) return
+        val songs = _playlists[idx].songs.toMutableList()
+        if (fromIndex !in songs.indices || toIndex !in songs.indices) return
+        val song = songs.removeAt(fromIndex)
+        songs.add(toIndex, song)
+        _playlists[idx] = _playlists[idx].copy(songs = songs)
+        save()
+    }
+
+    /** Creates a copy of a playlist with all its songs. Returns the new playlist's id, or null if the source doesn't exist. */
+    fun duplicate(id: String): String? {
+        val source = _playlists.firstOrNull { it.id == id } ?: return null
+        val newId = UUID.randomUUID().toString()
+        _playlists.add(
+            Playlist(
+                id = newId,
+                name = "${source.name} (copia)",
+                createdAt = System.currentTimeMillis(),
+                songs = source.songs,
+                thumbnail = source.thumbnail
+            )
+        )
+        save()
+        return newId
+    }
+
     fun containsSong(id: String, songId: String): Boolean =
         _playlists.firstOrNull { it.id == id }?.songs?.any { it.id == songId } == true
 

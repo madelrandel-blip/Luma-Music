@@ -1,10 +1,12 @@
 package com.arturo254.opentune.ui.theme
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.unit.dp
 import com.arturo254.opentune.DesktopPreferences
 import com.arturo254.opentune.rememberCurrentPalette
 import kotlin.math.roundToInt
@@ -85,6 +87,19 @@ fun generateDarkColorScheme(seed: Color, pureBlack: Boolean): ColorScheme {
     )
 }
 
+/**
+ * Shared shape scale for a softer, more modern look (rounder cards/buttons/fields,
+ * Spotify-ish). This is a static config object, not extra composition work, so it has
+ * no effect on recomposition count, memory, or runtime performance.
+ */
+private val LumaShapes = Shapes(
+    extraSmall = RoundedCornerShape(6.dp),
+    small = RoundedCornerShape(8.dp),
+    medium = RoundedCornerShape(12.dp),
+    large = RoundedCornerShape(16.dp),
+    extraLarge = RoundedCornerShape(28.dp),
+)
+
 @Composable
 fun LumaMusicTheme(content: @Composable () -> Unit) {
     val palette = rememberCurrentPalette()
@@ -96,6 +111,7 @@ fun LumaMusicTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography(),
+        shapes = LumaShapes,
         content = content
     )
 }

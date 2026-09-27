@@ -108,6 +108,7 @@ data class ArtistItem(
     val radioEndpoint: WatchEndpoint?,
     val subscriberCountText: String? = null,
     val monthlyListenerCountText: String? = null,
+    val subscribed: Boolean = false,
 ) : YTItem() {
     override val explicit: Boolean
         get() = false

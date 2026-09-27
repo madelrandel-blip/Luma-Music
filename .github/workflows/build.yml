@@ -1,0 +1,155 @@
+name: Build
+
+# Push to main -> just builds, so every commit gets verified.
+# Push a tag like v4.0.1 -> builds AND publishes a GitHub Release with the
+# Windows installer/portable ZIP attached (same flow CODESIGN.md describes).
+# workflow_dispatch -> lets you trigger a build by hand from the Actions tab.
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+# Needed so the release job below can create a GitHub Release and attach files to it.
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-windows:
+    name: Windows (MSI + portable ZIP)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Handles Gradle's dependency/build cache automatically - no extra cache step needed.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Reads the version from composeApp/build.gradle.kts (same source build-release.bat
+      # uses locally), but prefers the pushed tag's version when this run came from one -
+      # so `git tag v4.1.0` always produces files named for 4.1.0 even if someone forgets
+      # to bump packageVersion in the same commit.
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          $content = Get-Content composeApp/build.gradle.kts -Raw
+          if ($content -notmatch 'packageVersion\s*=\s*"([^"]+)"') {
+            throw "Could not find packageVersion in composeApp/build.gradle.kts"
+          }
+          $version = $Matches[1]
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            $version = $env:GITHUB_REF -replace 'refs/tags/v', ''
+          }
+          Write-Host "Building version $version"
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Build distributable app image + MSI
+        run: ./gradlew.bat :composeApp:createDistributable :composeApp:packageMsi --no-daemon
+
+      # Mirrors what build-release.bat does locally: zip the plain app-image folder into a
+      # portable build that doesn't need the installer.
+      - name: Package portable ZIP
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $distDir = "composeApp/build/compose/binaries/main/app/LumaMusic"
+          if (-not (Test-Path $distDir)) { throw "Expected build output not found at $distDir" }
+          Compress-Archive -Path $distDir -DestinationPath "LumaMusic-v$version-windows-portable.zip" -CompressionLevel Optimal
+
+      - name: Locate and rename the MSI
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $msi = Get-ChildItem -Path "composeApp/build/compose/binaries/main/msi" -Filter *.msi | Select-Object -First 1
+          if (-not $msi) { throw "No .msi was produced under composeApp/build/compose/binaries/main/msi" }
+          Copy-Item $msi.FullName "LumaMusic-v$version-windows.msi"
+
+      # -----------------------------------------------------------------------
+      # Code signing (Necessary Code Signing - https://sign.necessary.nu)
+      #
+      # CODESIGN.md describes the intended flow: on a tagged release, the MSI
+      # (and the exe inside the portable ZIP) get signed via Necessary Code
+      # Signing's API using the `SIGNING_TOKEN` repository secret, before
+      # they're attached to the GitHub Release.
+      #
+      # I couldn't find published API docs for this service to wire up a real
+      # call here safely - it's a small/independent free signing service, and
+      # guessing at request shapes risks silently producing broken artifacts.
+      # Once you have their API details (or a GitHub Action they publish),
+      # replace this step's `run:` with the real call and delete `if: false`.
+      # Until then, the release below ships the *unsigned* MSI/ZIP - they
+      # still install and run fine, they'll just still trigger the Windows
+      # SmartScreen warning this whole setup exists to avoid.
+      # -----------------------------------------------------------------------
+      - name: Sign Windows binaries (TODO - fill in Necessary Code Signing API call)
+        if: false && startsWith(github.ref, 'refs/tags/v')
+        env:
+          SIGNING_TOKEN: ${{ secrets.SIGNING_TOKEN }}
+        run: |
+          echo "Not implemented yet - see the comment above this step."
+          exit 1
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: |
+            LumaMusic-v*-windows-portable.zip
+            LumaMusic-v*-windows.msi
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            LumaMusic-v*-windows-portable.zip
+            LumaMusic-v*-windows.msi
+
+  # ===========================================================================
+  # Android build - intentionally NOT wired up yet.
+  #
+  # Luma Music currently only has a desktop target: composeApp/build.gradle.kts
+  # declares `kotlin { jvm("desktop") }` and there's no `androidTarget()`, no
+  # Android module, and no AndroidManifest anywhere in this repo. There's
+  # nothing for a `gradlew assembleDebug`-style task to build yet.
+  #
+  # Getting a real Android build also means dealing with several dependencies
+  # the desktop app relies on that don't work on Android as-is:
+  #   - net.java.dev.jna / jna-platform (Win32 calls: dark title bar, Discord RPC)
+  #   - org.xerial:sqlite-jdbc
+  #   - me.friwi:jcefmaven (the embedded browser used for account login)
+  #   - ffmpeg/yt-dlp invoked as external processes via ProcessBuilder
+  #
+  # Once an Android module/target exists, a job shaped like this is the
+  # starting point - uncomment and adjust the module name/task once it's real:
+  #
+  # build-android:
+  #   name: Android (APK)
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-java@v4
+  #       with:
+  #         distribution: temurin
+  #         java-version: '21'
+  #     - uses: gradle/actions/setup-gradle@v4
+  #     - name: Build debug APK
+  #       run: ./gradlew :androidApp:assembleDebug --no-daemon
+  #     - uses: actions/upload-artifact@v4
+  #       with:
+  #         name: android-build
+  #         path: androidApp/build/outputs/apk/debug/*.apk
+  # ===========================================================================

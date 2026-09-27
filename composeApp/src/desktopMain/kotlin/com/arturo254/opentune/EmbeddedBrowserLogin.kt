@@ -160,6 +160,17 @@ object EmbeddedBrowserLogin {
         }
     }
 
+    /**
+     * Shuts the embedded browser down completely. Its native side runs helper processes next to
+     * the app, and they only go away when CefApp is disposed - otherwise they stay behind after
+     * the window closes. Safe to call when the browser was never opened.
+     */
+    fun shutdown() {
+        val cef = app ?: return
+        app = null
+        runCatching { cef.dispose() }
+    }
+
     /** Closes the browser and its client. Must be called on the AWT event thread. */
     fun disposeBrowser(browser: CefBrowser?) {
         if (browser == null) return

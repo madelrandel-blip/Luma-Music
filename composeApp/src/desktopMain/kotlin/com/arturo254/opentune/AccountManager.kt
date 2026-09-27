@@ -6,7 +6,10 @@ import androidx.compose.runtime.setValue
 import com.arturo254.opentune.innertube.PlaybackAuthState
 import com.arturo254.opentune.innertube.YouTube
 import com.arturo254.opentune.innertube.models.AccountInfo
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -33,6 +36,7 @@ data class AccountData(
 object AccountManager {
     private val file = File(System.getProperty("user.home"), ".opentune/account.json")
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private var data = AccountData()
 
@@ -46,6 +50,15 @@ object AccountManager {
     init {
         load()
         applyToYouTube()
+        // The account's name/photo aren't persisted to disk (only the auth cookies are), so
+        // on every app start we need to re-fetch them in the background for an already-linked
+        // account - otherwise the profile picture only ever showed right after linking and
+        // disappeared again on the next launch.
+        if (isLinked) {
+            scope.launch {
+                runCatching { YouTube.accountInfo().getOrNull() }.getOrNull()?.let { accountInfo = it }
+            }
+        }
     }
 
     /** Triggers the object initializer (load + apply persisted auth) at startup. */

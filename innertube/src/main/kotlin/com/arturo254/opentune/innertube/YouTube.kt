@@ -564,6 +564,7 @@ object YouTube {
                 subscriberCountText = subscribeButtonRenderer?.subscriberCountText?.runs?.firstOrNull()?.text
                     ?: subscribeButtonRenderer?.subscriberCountWithSubscribeText?.runs?.firstOrNull()?.text,
                 monthlyListenerCountText = immersiveHeader?.monthlyListenerCount?.runs?.firstOrNull()?.text,
+                subscribed = subscribeButtonRenderer?.subscribed ?: false,
             ),
             sections = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
                 ?.tabRenderer?.content?.sectionListRenderer?.contents
@@ -1234,11 +1235,16 @@ object YouTube {
             innerTube.unlikePlaylist(WEB_REMIX, playlistId)
     }
 
-    suspend fun subscribeChannel(channelId: String, subscribe: Boolean) = runCatching {
+    // Explicit Result<Unit> (instead of inferring Result<HttpResponse>) so callers outside
+    // this module - e.g. composeApp, which only depends on :innertube via `implementation`
+    // and doesn't have ktor-client's classes on its own compile classpath - never need to
+    // reference io.ktor.client.statement.HttpResponse themselves.
+    suspend fun subscribeChannel(channelId: String, subscribe: Boolean): Result<Unit> = runCatching {
         if (subscribe)
             innerTube.subscribeChannel(WEB_REMIX, channelId)
         else
             innerTube.unsubscribeChannel(WEB_REMIX, channelId)
+        Unit
     }
 
     suspend fun getChannelId(browseId: String): String {

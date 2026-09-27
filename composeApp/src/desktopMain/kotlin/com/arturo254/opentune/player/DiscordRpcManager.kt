@@ -19,10 +19,22 @@ object DiscordRpcManager {
     private var lastSongId: String? = null
     private var lastState = STATE_CLEARED
     private var startTs = 0L
+    private var callbackThread: Thread? = null
 
     private const val STATE_CLEARED = 0
     private const val STATE_PLAYING = 1
     private const val STATE_PAUSED = 2
+
+    /** Interrupts the callback thread and closes the Discord connection, so nothing of ours is
+     * left talking to Discord (or holding its native library open) after the app closes. */
+    fun stop() {
+        if (!initialized) return
+        initialized = false
+        runCatching { callbackThread?.interrupt() }
+        callbackThread = null
+        runCatching { lib.Discord_ClearPresence() }
+        runCatching { lib.Discord_Shutdown() }
+    }
 
     fun start() {
         if (initialized || APPLICATION_ID.isBlank() || APPLICATION_ID.startsWith("AQUI_")) return
@@ -31,7 +43,7 @@ object DiscordRpcManager {
             val rpc = lib
             rpc.Discord_Initialize(APPLICATION_ID, DiscordEventHandlers(), true, null)
             initialized = true
-            thread(name = "discord-rpc-callbacks", isDaemon = true) {
+            callbackThread = thread(name = "discord-rpc-callbacks", isDaemon = true) {
                 try {
                     while (true) {
                         rpc.Discord_RunCallbacks()
