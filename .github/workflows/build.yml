@@ -142,10 +142,17 @@ jobs:
       # "tools" package (android-actions/setup-android@v3 tried to install it by default and
       # failed, since current command-line tools no longer provide it) - only the specific
       # platform-tools/platform/build-tools packages this project actually needs.
+      #
+      # cmdline-tools-version takes the command-line-tools build number, not a package
+      # version string - "latest"/"14.0" are not valid values for this input. 14742923 is
+      # command-line-tools 20.0 (the action's own current default, and the newest one it
+      # documents); the previous value here, 12266719 (tools 16.0), was too old to see the
+      # android-36 platform/build-tools packages in its repository listing, which is why the
+      # SDK setup step failed to find them.
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
-          cmdline-tools-version: 12266719
+          cmdline-tools-version: 14742923
           packages: |
             platform-tools
             platforms;android-36
