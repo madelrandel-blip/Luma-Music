@@ -139,24 +139,21 @@ jobs:
 
       # Installs the Android SDK platform/build-tools this project needs (compileSdk/targetSdk
       # 36) and accepts the SDK licenses non-interactively. Does NOT request the deprecated
-      # "tools" package (android-actions/setup-android@v3 tried to install it by default and
-      # failed, since current command-line tools no longer provide it) - only the specific
+      # "tools" package (android-actions/setup-android@v3 installs it by default and that
+      # package no longer exists in current command-line tools) - only the specific
       # platform-tools/platform/build-tools packages this project actually needs.
       #
-      # cmdline-tools-version takes the command-line-tools build number, not a package
-      # version string - "latest"/"14.0" are not valid values for this input. 14742923 is
-      # command-line-tools 20.0 (the action's own current default, and the newest one it
-      # documents); the previous value here, 12266719 (tools 16.0), was too old to see the
-      # android-36 platform/build-tools packages in its repository listing, which is why the
-      # SDK setup step failed to find them.
+      # IMPORTANT: `packages` must be space-separated on one line (its own default is
+      # 'tools platform-tools', space-separated) - it's passed straight through to
+      # `sdkmanager` as a single argument, not split on newlines. An earlier version of this
+      # step used a YAML `|` block (one package per line), which kept the literal newlines and
+      # made sdkmanager treat "platform-tools\nplatforms;android-36\nbuild-tools;36.0.0" as one
+      # (nonexistent) package name - exactly the failure this run hit.
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
           cmdline-tools-version: 14742923
-          packages: |
-            platform-tools
-            platforms;android-36
-            build-tools;36.0.0
+          packages: platform-tools platforms;android-36 build-tools;36.0.0
           accept-android-sdk-licenses: true
 
       - name: Set up Gradle
