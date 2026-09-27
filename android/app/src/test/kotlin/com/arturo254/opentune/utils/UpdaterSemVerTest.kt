@@ -1,0 +1,120 @@
+package com.arturo254.opentune.utils
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class UpdaterSemVerTest {
+    @Test
+    fun findLatestRelease_picksHighestStableSemverEvenIfNotFirst() {
+        val releases =
+            listOf(
+                ReleaseInfo(
+                    tagName = "v12.4.7",
+                    name = "12.4.7",
+                    body = null,
+                    publishedAt = "2026-01-01T00:00:00Z",
+                    htmlUrl = "https://example.com/12.4.7",
+                ),
+                ReleaseInfo(
+                    tagName = "v13.0.0",
+                    name = "13.0.0",
+                    body = null,
+                    publishedAt = "2026-02-01T00:00:00Z",
+                    htmlUrl = "https://example.com/13.0.0",
+                ),
+            )
+
+        val latest = Updater.findLatestRelease(releases)
+        assertNotNull(latest)
+        assertEquals("v13.0.0", latest?.tagName)
+    }
+
+    @Test
+    fun findLatestRelease_ignoresPrereleaseWhenStableExists() {
+        val releases =
+            listOf(
+                ReleaseInfo(
+                    tagName = "v13.0.0-beta.1",
+                    name = "13.0.0-beta.1",
+                    body = null,
+                    publishedAt = "2026-02-01T00:00:00Z",
+                    htmlUrl = "https://example.com/13.0.0-beta.1",
+                ),
+                ReleaseInfo(
+                    tagName = "v12.4.7",
+                    name = "12.4.7",
+                    body = null,
+                    publishedAt = "2026-01-01T00:00:00Z",
+                    htmlUrl = "https://example.com/12.4.7",
+                ),
+            )
+
+        val latest = Updater.findLatestRelease(releases)
+        assertNotNull(latest)
+        assertEquals("v12.4.7", latest?.tagName)
+    }
+
+    @Test
+    fun isSameVersion_matchesSemverRegardlessOfPrefixOrText() {
+        assertTrue(Updater.isSameVersion("v13.0.0", "13.0.0"))
+        assertTrue(Updater.isSameVersion("OpenTune 13.0.0", "13.0.0"))
+        assertTrue(Updater.isSameVersion("v4.0.1", "4.0.1"))
+        assertTrue(Updater.isSameVersion("v4.0.2", "4.0.2"))
+        assertFalse(Updater.isSameVersion("13.0.1", "13.0.0"))
+        assertFalse(Updater.isSameVersion("4.0.2", "4.0.1"))
+        assertFalse(Updater.isSameVersion("4.0.1", "3.0.6"))
+    }
+
+    @Test
+    fun findLatestRelease_picks401Over306() {
+        val releases =
+            listOf(
+                ReleaseInfo(
+                    tagName = "3.0.6",
+                    name = "OpenTune 3.0.6",
+                    body = null,
+                    publishedAt = "2026-08-20T00:00:00Z",
+                    htmlUrl = "https://example.com/3.0.6",
+                ),
+                ReleaseInfo(
+                    tagName = "v4.0.1",
+                    name = "OpenTune v4.0.1",
+                    body = null,
+                    publishedAt = "2026-09-03T00:00:00Z",
+                    htmlUrl = "https://example.com/v4.0.1",
+                ),
+            )
+
+        val latest = Updater.findLatestRelease(releases)
+        assertNotNull(latest)
+        assertEquals("v4.0.1", latest?.tagName)
+    }
+
+    @Test
+    fun findLatestRelease_picks402Over401() {
+        val releases =
+            listOf(
+                ReleaseInfo(
+                    tagName = "v4.0.1",
+                    name = "OpenTune v4.0.1",
+                    body = null,
+                    publishedAt = "2026-09-03T00:00:00Z",
+                    htmlUrl = "https://example.com/v4.0.1",
+                ),
+                ReleaseInfo(
+                    tagName = "v4.0.2",
+                    name = "OpenTune v4.0.2",
+                    body = null,
+                    publishedAt = "2026-09-18T00:00:00Z",
+                    htmlUrl = "https://example.com/v4.0.2",
+                ),
+            )
+
+        val latest = Updater.findLatestRelease(releases)
+        assertNotNull(latest)
+        assertEquals("v4.0.2", latest?.tagName)
+    }
+}

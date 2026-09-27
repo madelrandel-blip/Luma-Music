@@ -10,9 +10,9 @@
   </a>
 </p>
 
-Cliente de escritorio para YouTube Music, construido con **Kotlin** y **Compose Multiplatform (Compose Desktop)**.
+Cliente de YouTube Music para escritorio (Windows/Linux/macOS) y Android, construido con **Kotlin**.
 
-Luma Music es una versión de escritorio de la app de Android [OpenTune](https://github.com/Arturo254/OpenTune) (de Arturo254), reutilizando su módulo `innertube` para comunicarse con YouTube Music.
+Luma Music nació como una versión de escritorio de [OpenTune](https://github.com/Arturo254/OpenTune) (de Arturo254), reutilizando su módulo `innertube` para comunicarse con YouTube Music. El repositorio original de OpenTune fue dado de baja de GitHub por un DMCA; la versión de Android de Luma Music (carpeta `android/`) está basada en el fork activo y mantenido [Erorr40/OpenTune](https://github.com/Erorr40/OpenTune), con el nombre, ícono y textos adaptados a Luma Music.
 
 ## 📸 Capturas
 
@@ -56,7 +56,15 @@ Compila un paquete distribuible:
 ## Estructura del proyecto
 
 - `composeApp/` — la UI de escritorio y el reproductor (Compose Desktop)
-- `innertube/` — cliente de la API de YouTube Music (del proyecto original OpenTune)
+- `innertube/` — cliente de la API de YouTube Music para el escritorio (del proyecto original OpenTune)
+- `android/` — la app de Android, un proyecto Gradle **independiente** del de escritorio (tiene su propio `settings.gradle.kts`, `gradlew` y catálogo de versiones), basado en [Erorr40/OpenTune](https://github.com/Erorr40/OpenTune). Se compila por separado:
+
+  ```bash
+  cd android
+  ./gradlew :app:assembleUniversalDebug
+  ```
+
+  En Windows: `cd android && gradlew.bat :app:assembleUniversalDebug`. El APK queda en `android/app/build/outputs/apk/`.
 
 ## Datos y privacidad
 
@@ -72,4 +80,4 @@ Ver [CODESIGN.md](CODESIGN.md) para más detalles.
 
 ## Licencia
 
-GPL-3.0. El módulo `innertube` proviene originalmente de [OpenTune](https://github.com/Arturo254/OpenTune) (GPL-3.0).
+GPL-3.0. El módulo `innertube` de escritorio proviene originalmente de [OpenTune](https://github.com/Arturo254/OpenTune) (GPL-3.0). La carpeta `android/` proviene de [Erorr40/OpenTune](https://github.com/Erorr40/OpenTune) (GPL-3.0), un fork activo del proyecto original.
