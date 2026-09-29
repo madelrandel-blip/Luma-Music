@@ -31,7 +31,16 @@ kotlin {
             implementation("net.java.dev.jna:jna:5.13.0")
             implementation("net.java.dev.jna:jna-platform:5.13.0")
             implementation("me.friwi:jcefmaven:146.0.10")
-            implementation("org.jetbrains.skiko:skiko-awt-runtime-windows-x64:0.144.6")
+            // This used to be an unconditional dependency, but it's the Windows-only native
+            // Skiko runtime - adding it on every OS forced the whole project's Skiko version
+            // to 0.144.6 while Linux/macOS still got their native runtime library at whatever
+            // (older, mismatched) version Compose Multiplatform's own resolution picked,
+            // causing "Cannot find libskiko-<os>-<arch>.so.sha256" at startup on those OSes.
+            // Only add it when actually building on Windows; other OSes get their native
+            // runtime automatically from compose.desktop.common instead.
+            if (org.gradle.internal.os.OperatingSystem.current().isWindows) {
+                implementation("org.jetbrains.skiko:skiko-awt-runtime-windows-x64:0.144.6")
+            }
             implementation("com.github.MinnDevelopment:java-discord-rpc:2.0.2") {
                 exclude(group = "club.minnced", module = "discord-rpc-release")
             }
