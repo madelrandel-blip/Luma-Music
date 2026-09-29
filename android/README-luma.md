@@ -1,4 +1,4 @@
-# Estado de la app de Android — interfaz propia (v1)
+# Estado de la app de Android — interfaz propia (v2)
 
 Esta carpeta tiene **dos árboles de código Kotlin conviviendo**:
 
@@ -12,7 +12,7 @@ Esta carpeta tiene **dos árboles de código Kotlin conviviendo**:
 ## Qué se reutilizó del proyecto original (el "motor")
 
 - **`innertube/`** (módulo aparte, sin cambios): el cliente de YouTube Music —
-  búsqueda, metadatos, resolución de streams.
+  búsqueda, metadatos, home feed, resolución de streams.
 - **`YTPlayerUtils.kt`** y **`StreamClientUtils.kt`**: copiados a
   `com.lumamusic.android.playback` / `.utils` — resuelven la URL de audio real
   de un video de YouTube probando varios "clientes" de la API hasta que uno
@@ -23,18 +23,41 @@ Esta carpeta tiene **dos árboles de código Kotlin conviviendo**:
 
 - `App.kt`, `MainActivity.kt`, `PlayerViewModel.kt`: interfaz propia (Compose),
   con el look rosa de escritorio (`0xFFED5564`).
+- `MainActivity.kt` arma un layout de 3 pestañas (Inicio / Buscar / Favoritos)
+  con mini-reproductor persistente y una pantalla de reproductor completa.
 - `playback/PlaybackService.kt`: un `MediaSessionService` de Media3 minimalista
   (sin caché en disco, sin descargas, sin base de datos) que usa
   `YTPlayerUtils` para resolver el stream de cada canción al vuelo.
+- `PlayerViewModel.kt`: ahora maneja una **cola real** (no solo una canción
+  suelta) — `playQueue(songs, startIndex)` carga toda una lista (resultados de
+  búsqueda, sección de Inicio, o favoritos) como cola reproducible, con
+  `next()`/`previous()` delegando en los comandos nativos de Media3
+  (`seekToNextMediaItem`/`seekToPreviousMediaItem`), y hace polling de
+  posición/duración cada 500ms para alimentar la barra de progreso del
+  reproductor completo.
 - `data/SearchRepository.kt`: wrapper fino sobre `YouTube.search(...)`.
+- `data/HomeRepository.kt`: wrapper fino sobre `YouTube.home()` — feed de
+  inicio de YouTube Music. La pantalla de Inicio (`ui/screens/HomeScreen.kt`)
+  solo muestra las entradas de tipo canción (`SongItem`) de cada sección;
+  álbumes/playlists/artistas del feed se descartan por ahora porque navegar a
+  esas páginas necesita pantallas propias que quedan fuera de este alcance.
+- `data/FavoritesStore.kt`: favoritos persistidos localmente con
+  `DataStore Preferences` (una lista de `SongItem` codificada en JSON, ya que
+  `SongItem` es `@Serializable`) — **a propósito sin Room**, siguiendo la
+  decisión original de no reinstaurar la base de datos vieja.
+- `ui/components/SongComponents.kt`: `SongRow` y `MiniPlayerBar` compartidos
+  entre las tres pestañas.
+- `ui/screens/`: `SearchScreen.kt`, `HomeScreen.kt`, `FavoritesScreen.kt` y
+  `FullPlayerScreen.kt` (pantalla grande con carátula, barra de progreso
+  arrastrable, play/pause/siguiente/anterior y botón de favorito).
 
-## Alcance de esta v1
+## Alcance actual
 
-Buscar canciones → tocar una → se reproduce, con mini-reproductor abajo
-(play/pause). **No hay todavía**: biblioteca, playlists, cola completa,
-pantalla de reproductor grande, favoritos, ni ajustes — se van agregando de a
-poco sobre esta misma base, ahora que el motor de reproducción está
-validado con la interfaz nueva.
+Buscar / Inicio / Favoritos, los tres reproducen como **cola real** (con
+siguiente/anterior), mini-reproductor persistente, y pantalla de reproductor
+completa con seek bar y favoritos. **Todavía no hay**: pantallas de
+álbum/playlist/artista (navegación dentro del feed de Inicio), reordenar la
+cola a mano, ni ajustes.
 
 ## Por qué no se borró el código viejo
 
