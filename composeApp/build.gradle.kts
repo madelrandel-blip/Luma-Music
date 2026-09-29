@@ -15,7 +15,20 @@ kotlin {
         val desktopMain by getting
 
         desktopMain.dependencies {
-            implementation(compose.desktop.common)
+            // compose.desktop.common ships the Compose Desktop API classes but NO native Skiko
+            // runtime at all - on any OS. That's fine for a library module, but for the actual
+            // application (this module, run via `composeApp:run` and packaged for distribution)
+            // it caused "Cannot find libskiko-<os>-<arch>.so.sha256, proper native dependency
+            // missing" on every OS that didn't also get an explicit runtime dependency (Windows
+            // worked here only because of a separate hardcoded skiko-awt-runtime-windows-x64
+            // dependency below; Linux/macOS got nothing and crashed at startup).
+            // compose.desktop.currentOs pulls in compose.desktop.common's API PLUS the correct
+            // native Skiko runtime for whichever OS is currently running Gradle, at a version
+            // that matches this project's Compose Multiplatform version - this is the officially
+            // recommended way to depend on Compose Desktop for a runnable/packaged application,
+            // and it works out of the box on Windows, Linux and macOS without any OS-conditional
+            // logic (see https://github.com/JetBrains/compose-multiplatform, "desktop" docs).
+            implementation(compose.desktop.currentOs)
             implementation(compose.material3)
             implementation(compose.materialIconsExtended)
             implementation(compose.foundation)
@@ -31,16 +44,6 @@ kotlin {
             implementation("net.java.dev.jna:jna:5.13.0")
             implementation("net.java.dev.jna:jna-platform:5.13.0")
             implementation("me.friwi:jcefmaven:146.0.10")
-            // This used to be an unconditional dependency, but it's the Windows-only native
-            // Skiko runtime - adding it on every OS forced the whole project's Skiko version
-            // to 0.144.6 while Linux/macOS still got their native runtime library at whatever
-            // (older, mismatched) version Compose Multiplatform's own resolution picked,
-            // causing "Cannot find libskiko-<os>-<arch>.so.sha256" at startup on those OSes.
-            // Only add it when actually building on Windows; other OSes get their native
-            // runtime automatically from compose.desktop.common instead.
-            if (org.gradle.internal.os.OperatingSystem.current().isWindows) {
-                implementation("org.jetbrains.skiko:skiko-awt-runtime-windows-x64:0.144.6")
-            }
             implementation("com.github.MinnDevelopment:java-discord-rpc:2.0.2") {
                 exclude(group = "club.minnced", module = "discord-rpc-release")
             }
