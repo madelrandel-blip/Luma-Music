@@ -1,0 +1,8 @@
+# Force LF line endings for the Gradle wrappers and any shell script, regardless of the
+# committing machine's OS or git autocrlf setting. Without this, a Windows checkout/commit can
+# silently convert gradlew's LF endings to CRLF, which breaks it on Linux CI with a misleading
+# "cannot execute: required file not found" error (the kernel tries to resolve the shebang
+# interpreter as "/bin/sh\r", which doesn't exist).
+gradlew text eol=lf
+android/gradlew text eol=lf
+*.sh text eol=lf

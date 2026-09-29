@@ -152,13 +152,20 @@ jobs:
           echo "Building version $version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      # The root gradlew (same file the Windows job's gradlew.bat sits next to) has hit this
-      # before on android/gradlew: it loses its Unix executable bit whenever it passes through
-      # a Windows checkout/zip/commit round-trip, since Windows git has no real executable bit
-      # to preserve. Set it explicitly here so this job doesn't depend on that bit surviving in
-      # the repo (it's also being fixed permanently on the file itself via git update-index).
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
+      # The root gradlew has hit two Windows round-trip issues before (same root cause as
+      # android/gradlew's executable-bit fix): losing its Unix executable bit, and - the one
+      # that actually broke this job - picking up CRLF line endings, which makes the kernel try
+      # to resolve the shebang interpreter as "/bin/sh\r" (nonexistent), failing with the
+      # misleading "cannot execute: required file not found". Both are now fixed permanently on
+      # the file itself (LF endings + git update-index --chmod=+x) and via .gitattributes
+      # (gradlew text eol=lf) so future Windows commits can't reintroduce either - this step is
+      # just cheap defense in depth, and `--version` fails loudly here instead of at the real
+      # build step if the wrapper is ever broken again.
+      - name: Prepare Gradle wrapper
+        run: |
+          sed -i 's/\r$//' ./gradlew
+          chmod +x ./gradlew
+          ./gradlew --version
 
       # Same task the Windows job uses (createDistributable) - on Linux this produces a
       # jpackage app-image: a runnable folder with a native launcher at
