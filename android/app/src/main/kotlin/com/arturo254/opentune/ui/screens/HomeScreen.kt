@@ -277,6 +277,25 @@ fun HomeScreen(
                 state = lazylistState,
                 contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()
             ) {
+                keepListening?.takeIf { it.isNotEmpty() }?.let { items ->
+                    item {
+                        RecentlyPlayedGrid(
+                            items = items,
+                            mediaMetadata = mediaMetadata,
+                            isPlaying = isPlaying,
+                            navController = navController,
+                            playerConnection = playerConnection,
+                            menuState = menuState,
+                            haptic = haptic,
+                            scope = scope,
+                            metadataMap = allItemsMetadata,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                        )
+                    }
+                }
+
                 if (showHomeCategoryChips) {
                     item {
                         ChipsRow(
@@ -330,29 +349,6 @@ fun HomeScreen(
                         playerConnection = playerConnection,
                         menuState = menuState,
                         haptic = haptic,
-                        metadataMap = allItemsMetadata
-                    )
-                }
-            }
-
-            keepListening?.takeIf { it.isNotEmpty() }?.let { items ->
-                item {
-                    NavigationTitle(
-                        title = stringResource(R.string.keep_listening),
-                        modifier = Modifier.animateItem()
-                    )
-                }
-
-                item {
-                    KeepListeningSection(
-                        keepListening = items,
-                        mediaMetadata = mediaMetadata,
-                        isPlaying = isPlaying,
-                        navController = navController,
-                        playerConnection = playerConnection,
-                        menuState = menuState,
-                        haptic = haptic,
-                        scope = scope,
                         metadataMap = allItemsMetadata
                     )
                 }

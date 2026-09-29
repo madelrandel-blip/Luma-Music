@@ -34,6 +34,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
@@ -1089,6 +1090,209 @@ fun LazyListScope.AccountPlaylistsContainer(
                     metadataMap = allItemsMetadata
                 )
             }
+        }
+    }
+}
+
+/**
+ * Recently played grid - Spotify-style 2 column grid of pill cards
+ * shown at the very top of Home, mirroring the "recently played" tiles
+ * seen on Spotify's home screen.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun RecentlyPlayedGrid(
+    items: List<LocalItem>,
+    mediaMetadata: MediaMetadata?,
+    isPlaying: Boolean,
+    navController: NavController,
+    playerConnection: PlayerConnection,
+    menuState: MenuState,
+    haptic: HapticFeedback,
+    scope: CoroutineScope,
+    metadataMap: Map<String, ItemMetadata> = emptyMap(),
+    modifier: Modifier = Modifier
+) {
+    fun LocalItem.key(): String = when (this) {
+        is Song -> "recent_song_$id"
+        is Album -> "recent_album_$id"
+        is Artist -> "recent_artist_$id"
+        is Playlist -> "recent_playlist_$id"
+    }
+
+    fun LocalItem.itemId(): String = when (this) {
+        is Song -> id
+        is Album -> id
+        is Artist -> id
+        is Playlist -> id
+    }
+
+    val distinctItems = remember(items) {
+        items.distinctBy { it.key() }.take(12)
+    }
+
+    if (distinctItems.isEmpty()) return
+
+    val cellHeight = 56.dp
+    val spacing = 8.dp
+    val rows = ceil(distinctItems.size / 2f).toInt().coerceAtLeast(1)
+    val gridHeight = cellHeight * rows + spacing * (rows - 1).coerceAtLeast(0)
+
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        horizontalArrangement = Arrangement.spacedBy(spacing),
+        verticalArrangement = Arrangement.spacedBy(spacing),
+        userScrollEnabled = false,
+        contentPadding = WindowInsets.systemBars
+            .only(WindowInsetsSides.Horizontal)
+            .asPaddingValues(),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(gridHeight)
+    ) {
+        items(
+            items = distinctItems,
+            key = { it.key() }
+        ) { item ->
+            RecentlyPlayedCard(
+                item = item,
+                mediaMetadata = mediaMetadata,
+                isPlaying = isPlaying,
+                navController = navController,
+                playerConnection = playerConnection,
+                menuState = menuState,
+                haptic = haptic,
+                scope = scope,
+                metadata = metadataMap[item.itemId()],
+                cellHeight = cellHeight
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun RecentlyPlayedCard(
+    item: LocalItem,
+    mediaMetadata: MediaMetadata?,
+    isPlaying: Boolean,
+    navController: NavController,
+    playerConnection: PlayerConnection,
+    menuState: MenuState,
+    haptic: HapticFeedback,
+    scope: CoroutineScope,
+    metadata: ItemMetadata?,
+    cellHeight: Dp,
+) {
+    val title: String
+    val thumbnailUrl: String?
+    val isArtist: Boolean
+    val onClick: () -> Unit
+    val onLongClick: () -> Unit
+
+    when (item) {
+        is Song -> {
+            title = item.song.title
+            thumbnailUrl = item.song.thumbnailUrl
+            isArtist = false
+            onClick = {
+                if (item.id == mediaMetadata?.id) {
+                    playerConnection.player.togglePlayPause()
+                } else {
+                    playerConnection.playQueue(YouTubeQueue.radio(item.toMediaMetadata()))
+                }
+            }
+            onLongClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                menuState.show {
+                    SongMenu(
+                        originalSong = item,
+                        navController = navController,
+                        metadata = metadata,
+                        onDismiss = menuState::dismiss
+                    )
+                }
+            }
+        }
+        is Album -> {
+            title = item.album.title
+            thumbnailUrl = item.album.thumbnailUrl
+            isArtist = false
+            onClick = { navController.navigate("album/${item.id}") }
+            onLongClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                menuState.show {
+                    AlbumMenu(
+                        originalAlbum = item,
+                        navController = navController,
+                        onDismiss = menuState::dismiss
+                    )
+                }
+            }
+        }
+        is Artist -> {
+            title = item.artist.name
+            thumbnailUrl = item.artist.thumbnailUrl
+            isArtist = true
+            onClick = { navController.navigate("artist/${item.id}") }
+            onLongClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                menuState.show {
+                    ArtistMenu(
+                        originalArtist = item,
+                        coroutineScope = scope,
+                        onDismiss = menuState::dismiss
+                    )
+                }
+            }
+        }
+        is Playlist -> {
+            title = item.playlist.name
+            thumbnailUrl = null
+            isArtist = false
+            onClick = {}
+            onLongClick = {}
+        }
+    }
+
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(4.dp),
+        modifier = Modifier
+            .height(cellHeight)
+            .fillMaxWidth()
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (thumbnailUrl != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(thumbnailUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(cellHeight)
+                        .clip(if (isArtist) CircleShape else RoundedCornerShape(4.dp))
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(cellHeight)
+                        .background(
+                            MaterialTheme.colorScheme.surfaceVariant,
+                            if (isArtist) CircleShape else RoundedCornerShape(4.dp)
+                        )
+                )
+            }
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+            )
         }
     }
 }
