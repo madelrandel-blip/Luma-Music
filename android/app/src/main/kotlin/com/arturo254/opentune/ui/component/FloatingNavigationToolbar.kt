@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingToolbarScrollBehavior
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +44,7 @@ import com.arturo254.opentune.ui.screens.Screens
  * keeps those parameters so the call site in MainActivity does not need
  * to change; they are accepted but currently unused.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FloatingNavigationToolbar(
     items: List<Screens>,
