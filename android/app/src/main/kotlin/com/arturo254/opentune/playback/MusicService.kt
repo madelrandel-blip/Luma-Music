@@ -383,7 +383,7 @@ class MusicService :
         if (lastPrompt?.first == mediaId && now - lastPrompt.second < 10000L) return
         lastLoginRecoveryPrompt = mediaId to now
 
-        val deepLink = Uri.parse("OpenTune://login?url=${Uri.encode(targetUrl)}")
+        val deepLink = Uri.parse("lumamusic://login?url=${Uri.encode(targetUrl)}")
         val intent = Intent(Intent.ACTION_VIEW, deepLink, this, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -668,7 +668,7 @@ class MusicService :
 
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         wakeLock = (getSystemService(Context.POWER_SERVICE) as PowerManager)
-            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "OpenTune:Playback")
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "LumaMusic:Playback")
             .also { it.setReferenceCounted(false) }
         setupAudioFocusRequest()
 

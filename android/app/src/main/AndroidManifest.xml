@@ -3,22 +3,34 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!--
-        Luma Music v1 (own UI, minimal scope): only the permissions the new
-        com.lumamusic.android app actually uses. The old OpenTune-based
-        Activities/Services/widgets below (DebugActivity, the widgets, the Discord
-        auth activity, ExoDownloadService, FileProvider, ...) are UNREFERENCED here on
-        purpose - their Kotlin source is still present under com/arturo254/opentune/ and
-        still compiles, but nothing launches it anymore. See android/README-luma.md.
+        Luma Music v3: volvemos a lanzar la app completa de OpenTune
+        (com.arturo254.opentune) en vez de la mini interfaz propia
+        (com.lumamusic.android, v1/v2). Esa app completa ya vivia en el repo
+        sin usarse (ver android/README-luma.md) - ahora es la que corre.
+        El codigo de com.lumamusic.android queda sin referenciar aqui pero
+        sigue compilando, igual que antes pasaba al reves con esta carpeta.
     -->
+
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Escaneo de musica local: en Android 13+ se pide READ_MEDIA_AUDIO; en versiones
+         viejas, READ_EXTERNAL_STORAGE (con maxSdkVersion para no pedirla de mas). -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <!-- Deteccion de auto-inicio por Bluetooth (BluetoothDevice.getName() en Android 12+). -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
     <application
-        android:name="com.lumamusic.android.App"
+        android:name="com.arturo254.opentune.App"
         android:allowBackup="true"
         android:appCategory="audio"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -27,12 +39,17 @@
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:usesCleartextTraffic="true"
-        android:supportsRtl="false"
+        android:supportsRtl="true"
         android:theme="@style/Theme.OpenTune"
         tools:targetApi="tiramisu">
 
+        <!-- Android Auto: la app expone su biblioteca via MusicService (MediaLibraryService). -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
+
         <activity
-            android:name="com.lumamusic.android.MainActivity"
+            android:name="com.arturo254.opentune.MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
             android:theme="@style/Theme.OpenTune"
@@ -42,10 +59,31 @@
                 <category android:name="android.intent.category.LAUNCHER" />
                 <category android:name="android.intent.category.APP_MUSIC" />
             </intent-filter>
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+            <!-- Deep link interno lumamusic://together?... (invitacion al modo Together) y
+                 lumamusic://login?... (recuperacion de sesion). Se generan en
+                 TogetherLink.kt / MusicService.kt y se leen en handleDeepLinkIntent(). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="lumamusic" />
+            </intent-filter>
         </activity>
 
+        <!-- Pantalla de crash: App.kt la lanza en el proceso separado ":crash" cuando
+             hay una excepcion no capturada, para poder mostrar el stack trace incluso
+             si el proceso principal murio. -->
+        <activity
+            android:name="com.arturo254.opentune.DebugActivity"
+            android:exported="false"
+            android:process=":crash"
+            android:theme="@style/Theme.OpenTune" />
+
         <service
-            android:name="com.lumamusic.android.playback.PlaybackService"
+            android:name="com.arturo254.opentune.playback.MusicService"
             android:exported="true"
             android:foregroundServiceType="mediaPlayback"
             tools:ignore="ExportedService">
@@ -55,6 +93,11 @@
             </intent-filter>
         </service>
 
+        <service
+            android:name="com.arturo254.opentune.playback.ExoDownloadService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
         <receiver
             android:name="androidx.media3.session.MediaButtonReceiver"
             android:exported="true">
@@ -62,6 +105,30 @@
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
             </intent-filter>
         </receiver>
+
+        <!-- Widget de home screen (Glance) - un solo receiver/provider que dibuja el
+             layout compacto/grande/vinilo/reproductor segun el tamano disponible. -->
+        <receiver
+            android:name="com.arturo254.opentune.widget.OpenTunePlayerWidgetReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/opentune_widget" />
+        </receiver>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.FileProvider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/provider_paths" />
+        </provider>
+
     </application>
 
 </manifest>

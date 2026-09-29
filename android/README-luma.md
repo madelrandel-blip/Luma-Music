@@ -1,68 +1,50 @@
-# Estado de la app de Android — interfaz propia (v2)
+# Estado de la app de Android — v3: se usa OpenTune completo
 
-Esta carpeta tiene **dos árboles de código Kotlin conviviendo**:
+Desde este cambio, la app de Android que se lanza es la **app completa
+original de OpenTune** (`app/src/main/kotlin/com/arturo254/opentune/`),
+la misma que ya vivía en este repo sin usarse desde el v1. Es el mismo
+motor/UI que el fork [Arturo254/OpenTune](https://github.com/Arturo254/OpenTune)
+del que salió también la versión de PC — por eso ahora el look de Android
+coincide con el de escritorio (mismo `Theme.kt`, mismos componentes de
+reproductor, letras, cola, etc.).
 
-- `app/src/main/kotlin/com/arturo254/opentune/` — el código original portado de
-  [Erorr40/OpenTune](https://github.com/Erorr40/OpenTune). Ya **no se lanza**
-  (no está referenciado en `AndroidManifest.xml`), pero sigue compilando: de
-  ahí sacamos el motor de reproducción real.
-- `app/src/main/kotlin/com/lumamusic/android/` — la app nueva, con interfaz
-  propia de Luma Music. **Esto es lo que corre hoy.**
+## Qué cambió
 
-## Qué se reutilizó del proyecto original (el "motor")
+- `AndroidManifest.xml`: la `<application>` y la `MainActivity` vuelven a
+  apuntar a `com.arturo254.opentune.App` / `.MainActivity` (antes apuntaban
+  a la mini app `com.lumamusic.android`). Se restauraron también los
+  componentes que la app completa necesita para andar:
+  - `DebugActivity` (pantalla de crash, corre en el proceso `:crash`).
+  - `MusicService` (el `MediaLibraryService` real de Media3, con cola,
+    ecualizador, crossfade, Discord RPC, etc. — reemplaza al
+    `PlaybackService` minimalista del v1/v2).
+  - `ExoDownloadService` (descargas para escuchar offline).
+  - El receiver del widget de pantalla de inicio (`OpenTunePlayerWidgetReceiver`,
+    un solo Glance widget responsive: compacto/grande/vinilo/reproductor
+    según el tamaño).
+  - El `FileProvider` (para compartir imágenes de letras, etc.).
+  - Permisos: se agregaron los que la app completa necesita y el v1/v2 no
+    usaba — lectura de música local (`READ_MEDIA_AUDIO`/`READ_EXTERNAL_STORAGE`),
+    `BLUETOOTH_CONNECT` (auto-inicio por Bluetooth), `VIBRATE` (haptics),
+    `FOREGROUND_SERVICE_DATA_SYNC` (descargas).
+- `app_name` ya decía "Luma Music" (`res/values/app_name.xml`), así que el
+  nombre de la app no cambia.
 
-- **`innertube/`** (módulo aparte, sin cambios): el cliente de YouTube Music —
-  búsqueda, metadatos, home feed, resolución de streams.
-- **`YTPlayerUtils.kt`** y **`StreamClientUtils.kt`**: copiados a
-  `com.lumamusic.android.playback` / `.utils` — resuelven la URL de audio real
-  de un video de YouTube probando varios "clientes" de la API hasta que uno
-  funciona. Es la pieza más delicada del proyecto original y no tenía
-  dependencia de base de datos, así que se copió casi textual.
+## Qué queda sin usar (pero sigue compilando)
 
-## Qué es nuevo
+`app/src/main/kotlin/com/lumamusic/android/` — la interfaz mini que se
+armó a mano en el v1/v2 (Home/Buscar/Favoritos/cola con reproductor
+propio). Ya no se lanza. Se puede borrar más adelante si no hace falta
+como referencia; el puente de archivos de esta sesión no tiene terminal
+en tu PC para borrarla directamente.
 
-- `App.kt`, `MainActivity.kt`, `PlayerViewModel.kt`: interfaz propia (Compose),
-  con el look rosa de escritorio (`0xFFED5564`).
-- `MainActivity.kt` arma un layout de 3 pestañas (Inicio / Buscar / Favoritos)
-  con mini-reproductor persistente y una pantalla de reproductor completa.
-- `playback/PlaybackService.kt`: un `MediaSessionService` de Media3 minimalista
-  (sin caché en disco, sin descargas, sin base de datos) que usa
-  `YTPlayerUtils` para resolver el stream de cada canción al vuelo.
-- `PlayerViewModel.kt`: ahora maneja una **cola real** (no solo una canción
-  suelta) — `playQueue(songs, startIndex)` carga toda una lista (resultados de
-  búsqueda, sección de Inicio, o favoritos) como cola reproducible, con
-  `next()`/`previous()` delegando en los comandos nativos de Media3
-  (`seekToNextMediaItem`/`seekToPreviousMediaItem`), y hace polling de
-  posición/duración cada 500ms para alimentar la barra de progreso del
-  reproductor completo.
-- `data/SearchRepository.kt`: wrapper fino sobre `YouTube.search(...)`.
-- `data/HomeRepository.kt`: wrapper fino sobre `YouTube.home()` — feed de
-  inicio de YouTube Music. La pantalla de Inicio (`ui/screens/HomeScreen.kt`)
-  solo muestra las entradas de tipo canción (`SongItem`) de cada sección;
-  álbumes/playlists/artistas del feed se descartan por ahora porque navegar a
-  esas páginas necesita pantallas propias que quedan fuera de este alcance.
-- `data/FavoritesStore.kt`: favoritos persistidos localmente con
-  `DataStore Preferences` (una lista de `SongItem` codificada en JSON, ya que
-  `SongItem` es `@Serializable`) — **a propósito sin Room**, siguiendo la
-  decisión original de no reinstaurar la base de datos vieja.
-- `ui/components/SongComponents.kt`: `SongRow` y `MiniPlayerBar` compartidos
-  entre las tres pestañas.
-- `ui/screens/`: `SearchScreen.kt`, `HomeScreen.kt`, `FavoritesScreen.kt` y
-  `FullPlayerScreen.kt` (pantalla grande con carátula, barra de progreso
-  arrastrable, play/pause/siguiente/anterior y botón de favorito).
+## Qué falta verificar
 
-## Alcance actual
-
-Buscar / Inicio / Favoritos, los tres reproducen como **cola real** (con
-siguiente/anterior), mini-reproductor persistente, y pantalla de reproductor
-completa con seek bar y favoritos. **Todavía no hay**: pantallas de
-álbum/playlist/artista (navegación dentro del feed de Inicio), reordenar la
-cola a mano, ni ajustes.
-
-## Por qué no se borró el código viejo
-
-El puente de archivos de esta sesión no tiene acceso a una terminal en tu PC,
-así que no pude borrar carpetas. El árbol `com/arturo254/opentune/` sigue ahí,
-sin usarse, pesando en el build pero sin afectar el funcionamiento de la app
-nueva. Se puede limpiar más adelante (a mano, o cuando tengamos terminal
-disponible) sin apuro.
+Esto se armó reconstruyendo el `AndroidManifest.xml` a partir del código
+fuente (GitHub estaba bloqueado para bajar el manifest original tal
+cual), así que aunque el módulo ya compilaba antes de este cambio, puede
+que falte algún permiso o declaración puntual que solo se note al
+compilar/correr de verdad. Si compila o corre y tira algún error
+puntual (falta un permiso, un componente no declarado, etc.), pasámelo
+tal cual sale y lo ajustamos — es la misma dinámica que veníamos usando
+con los otros errores de CI.

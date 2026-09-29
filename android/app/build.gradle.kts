@@ -90,7 +90,7 @@ android {
     ndkVersion = "27.1.12297006"
 
     defaultConfig {
-        applicationId = "com.Arturo254.opentune"
+        applicationId = "com.lumamusic.android"
         minSdk = 26
         targetSdk = 36
         versionCode = 402

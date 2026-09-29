@@ -68,7 +68,7 @@ class OpenTuneCompactWidget : GlanceAppWidget() {
 private fun CompactWidgetContent(state: PlayerWidgetState, uiPrefs: WidgetUiPrefs) {
     val context = LocalContext.current
     val title = state.title.ifBlank { context.getString(R.string.app_name) }
-    val artist = state.artist.ifBlank { "OpenTune" }
+    val artist = state.artist.ifBlank { "Luma Music" }
 
     Box(
         modifier = GlanceModifier

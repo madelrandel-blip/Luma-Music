@@ -2035,14 +2035,14 @@ class MainActivity : ComponentActivity() {
         }
 
         val authority = uri.authority?.lowercase()
-        if (uri.scheme.equals("OpenTune", ignoreCase = true) && authority == "together") {
+        if (uri.scheme.equals("lumamusic", ignoreCase = true) && authority == "together") {
             pendingTogetherJoinLink = uri.toString()
             startMusicServiceSafely()
             joinPendingTogetherIfReady()
             return
         }
 
-        if (uri.scheme.equals("OpenTune", ignoreCase = true) && authority == "login") {
+        if (uri.scheme.equals("lumamusic", ignoreCase = true) && authority == "login") {
             navController.navigate(buildLoginRoute(uri.getQueryParameter(LOGIN_URL_ARGUMENT)))
             return
         }
