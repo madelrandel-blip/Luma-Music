@@ -99,14 +99,26 @@ object DiscordRpcManager {
         return if (base != url) "$base=w512-h512-l90-rj" else url
     }
 
-    // Ubica la carpeta resources/bin de la app empaquetada (donde esta discord-rpc.dll)
+    // El nombre real de la libreria nativa cambia por SO: discord-rpc.dll (empaquetada bajo
+    // extraResources/common, va en todos los paquetes), libdiscord-rpc.so (empaquetada bajo
+    // extraResources/linux, solo va en el paquete de Linux - la version oficial del release
+    // v3.4.0 de discordapp/discord-rpc). No hay .dylib empaquetado todavia porque no hay build
+    // de macOS en CI.
+    private fun nativeLibFileName(): String =
+        if (System.getProperty("os.name")?.lowercase()?.contains("win") == true) {
+            "discord-rpc.dll"
+        } else {
+            "libdiscord-rpc.so"
+        }
+
+    // Ubica la carpeta resources/bin de la app empaquetada (donde esta la libreria nativa)
     private fun bundledBinDir(): String? {
         return runCatching {
             val codeSource = com.arturo254.opentune.DesktopPreferences::class.java.protectionDomain.codeSource
             val jarFile = codeSource?.location?.let { File(it.toURI()) } ?: return null
             val appDir = jarFile.parentFile ?: return null
             val binDir = File(File(appDir, "resources"), "bin")
-            if (File(binDir, "discord-rpc.dll").exists()) binDir.absolutePath else null
+            if (File(binDir, nativeLibFileName()).exists()) binDir.absolutePath else null
         }.getOrNull()
     }
 }
