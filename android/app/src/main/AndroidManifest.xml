@@ -82,6 +82,12 @@
             android:process=":crash"
             android:theme="@style/Theme.OpenTune" />
 
+        <!-- Pantalla con WebView para extraer el PoToken de YouTube (Ajustes > avanzado). -->
+        <activity
+            android:name="com.arturo254.opentune.ui.screens.settings.PoTokenExtractionActivity"
+            android:exported="false"
+            android:theme="@style/Theme.OpenTune" />
+
         <service
             android:name="com.arturo254.opentune.playback.MusicService"
             android:exported="true"

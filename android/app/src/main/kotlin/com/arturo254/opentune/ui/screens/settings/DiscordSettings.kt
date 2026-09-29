@@ -551,7 +551,7 @@ fun DiscordSettings(
 
             val (button1Label, onButton1LabelChange) = rememberPreference(DiscordActivityButton1LabelKey, "Listen on YouTube Music")
             val (button1Enabled, onButton1EnabledChange) = rememberPreference(DiscordActivityButton1EnabledKey, true)
-            val (button2Label, onButton2LabelChange) = rememberPreference(DiscordActivityButton2LabelKey, "Go to OpenTune")
+            val (button2Label, onButton2LabelChange) = rememberPreference(DiscordActivityButton2LabelKey, "Go to Luma Music")
             val (button2Enabled, onButton2EnabledChange) = rememberPreference(DiscordActivityButton2EnabledKey, true)
 
             SwitchPreference(
@@ -708,7 +708,7 @@ fun RichPresence(
    val (button1Label) = rememberPreference(DiscordActivityButton1LabelKey, "Listen on YouTube Music")
    val (button1Enabled) = rememberPreference(DiscordActivityButton1EnabledKey, true)
 
-   val (button2Label) = rememberPreference(DiscordActivityButton2LabelKey, "Go to OpenTune")
+   val (button2Label) = rememberPreference(DiscordActivityButton2LabelKey, "Go to Luma Music")
    val (button2Enabled) = rememberPreference(DiscordActivityButton2EnabledKey, true)
 
 // Button URL sources + custom
@@ -748,7 +748,7 @@ fun RichPresence(
     ActivitySource.ARTIST -> "$activityVerb ${song?.artists?.firstOrNull()?.name ?: "Artist"}"
     ActivitySource.ALBUM -> "$activityVerb ${song?.album?.title ?: song?.song?.albumName ?: "Album"}"
     ActivitySource.SONG -> "$activityVerb ${song?.song?.title ?: "Song"}"
-    ActivitySource.APP -> "$activityVerb OpenTune"
+    ActivitySource.APP -> "$activityVerb Luma Music"
    }
 
 

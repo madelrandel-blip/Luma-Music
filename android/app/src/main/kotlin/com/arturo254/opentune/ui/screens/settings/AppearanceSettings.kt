@@ -524,7 +524,7 @@ fun AppearanceSettings(
                 when (source) {
                     CanvasSource.AUTO -> "Auto"
                     CanvasSource.APPLE_MUSIC -> "Apple Music"
-                    CanvasSource.CUSTOM -> "Custom by OpenTune"
+                    CanvasSource.CUSTOM -> "Custom by Luma Music"
                     CanvasSource.TIDAL -> "Tidal"
                 }
             },

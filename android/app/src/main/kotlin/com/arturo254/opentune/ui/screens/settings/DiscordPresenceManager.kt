@@ -330,7 +330,7 @@ object DiscordPresenceManager {
         val button1Enabled = context.dataStore[DiscordActivityButton1EnabledKey] ?: true
         val button1UrlSource = context.dataStore[DiscordActivityButton1UrlSourceKey] ?: "songurl"
         val button1CustomUrl = context.dataStore[DiscordActivityButton1CustomUrlKey] ?: ""
-        val button2Label = context.dataStore[DiscordActivityButton2LabelKey] ?: "Go to OpenTune"
+        val button2Label = context.dataStore[DiscordActivityButton2LabelKey] ?: "Go to Luma Music"
         val button2Enabled = context.dataStore[DiscordActivityButton2EnabledKey] ?: true
         val button2UrlSource = context.dataStore[DiscordActivityButton2UrlSourceKey] ?: "custom"
         val button2CustomUrl = context.dataStore[DiscordActivityButton2CustomUrlKey]
