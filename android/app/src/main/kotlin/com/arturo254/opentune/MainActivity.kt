@@ -1356,90 +1356,8 @@ class MainActivity : ComponentActivity() {
                                                         WindowInsetsSides.Horizontal
                                                     }) + WindowInsetsSides.Top
                                                 ),
-                                                title = {
-                                                    val googleSans = FontFamily(
-                                                        Font(
-                                                            R.font.anybody,
-                                                            variationSettings = FontVariation.Settings(
-                                                                FontVariation.weight(650),
-                                                                FontVariation.width(110f),
-                                                                FontVariation.slant(-4f)
-                                                            )
-                                                        )
-                                                    )
-
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(
-                                                            6.dp
-                                                        )
-                                                    ) {
-
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .size(40.dp)
-                                                                .clip(RoundedCornerShape(14.dp))
-                                                                .background(
-                                                                    MaterialTheme.colorScheme.secondaryContainer.copy(
-                                                                        alpha = 0.5f
-                                                                    )
-                                                                ),
-                                                            contentAlignment = Alignment.Center
-                                                        ) {
-                                                            Icon(
-                                                                painter = painterResource(R.drawable.opentune),
-                                                                contentDescription = null,
-                                                                tint = Color.Unspecified,
-                                                                modifier = Modifier.size(28.dp)
-                                                            )
-                                                        }
-
-                                                        Text(
-                                                            text = stringResource(R.string.app_name),
-                                                            style = MaterialTheme.typography.headlineSmallEmphasized.copy(
-                                                                fontFamily = googleSans,
-                                                                fontWeight = FontWeight.ExtraBold
-                                                            ),
-                                                            maxLines = 1,
-                                                            overflow = TextOverflow.Ellipsis
-                                                        )
-                                                    }
-                                                },
-                                                actions = {
-
-                                                    IconButton(
-                                                        modifier = Modifier.size(40.dp),
-                                                        onClick = { navController.navigate("history") }
-                                                    ) {
-                                                        Icon(
-                                                            painter = painterResource(R.drawable.history),
-                                                            contentDescription = stringResource(R.string.history),
-                                                            modifier = Modifier.size(22.dp)
-                                                        )
-                                                    }
-
-                                                    IconButton(
-                                                        modifier = Modifier.size(40.dp),
-                                                        onClick = { navController.navigate("stats") }
-                                                    ) {
-                                                        Icon(
-                                                            painter = painterResource(R.drawable.stats),
-                                                            contentDescription = stringResource(R.string.stats),
-                                                            modifier = Modifier.size(22.dp)
-                                                        )
-                                                    }
-
-                                                    IconButton(
-                                                        modifier = Modifier.size(40.dp),
-                                                        onClick = { navController.navigate("new_release") }
-                                                    ) {
-                                                        Icon(
-                                                            painter = painterResource(R.drawable.notifications),
-                                                            contentDescription = stringResource(R.string.new_release_albums),
-                                                            modifier = Modifier.size(22.dp)
-                                                        )
-                                                    }
-
+                                                title = {},
+                                                navigationIcon = {
                                                     IconButton(
                                                         modifier = Modifier.size(40.dp),
                                                         onClick = { showAccountDialog = true }
@@ -1471,6 +1389,18 @@ class MainActivity : ComponentActivity() {
                                                                 )
                                                             }
                                                         }
+                                                    }
+                                                },
+                                                actions = {
+                                                    IconButton(
+                                                        modifier = Modifier.size(40.dp),
+                                                        onClick = { navController.navigate("new_release") }
+                                                    ) {
+                                                        Icon(
+                                                            painter = painterResource(R.drawable.notifications),
+                                                            contentDescription = stringResource(R.string.new_release_albums),
+                                                            modifier = Modifier.size(22.dp)
+                                                        )
                                                     }
                                                 },
                                                 scrollBehavior = if (shouldUseFloatingTopBar) {
