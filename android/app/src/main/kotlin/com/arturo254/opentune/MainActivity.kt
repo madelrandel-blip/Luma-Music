@@ -1716,8 +1716,6 @@ class MainActivity : ComponentActivity() {
                                                 modifier = Modifier
                                                     .align(Alignment.BottomCenter)
                                                     .padding(
-                                                        start = FloatingToolbarHorizontalPadding,
-                                                        end = FloatingToolbarHorizontalPadding,
                                                         bottom = bottomInset + floatingBarsBottomPadding,
                                                     )
                                                     .height(navVisibleHeight),
