@@ -25,8 +25,13 @@ Desktop.ini
 # Temporary / local scripts
 run.bat
 
-# Bundled runtime binaries (ffmpeg, yt-dlp) - too large for GitHub (< 100 MB limit).
-# To build a self-contained distribution, place them in:
+# Bundled runtime binaries (ffmpeg, yt-dlp) - too large for GitHub (< 100 MB limit: ffmpeg.exe
+# alone is ~145 MB). Everything else under extraResources/ (the small native RPC libraries,
+# under 1 MB each) is meant to be committed normally - this used to ignore the whole
+# extraResources/ folder, which silently excluded those too (that's why libdiscord-rpc.so never
+# showed up in `git status` even though it was sitting right there on disk).
+# To build a self-contained distribution, place ffmpeg/yt-dlp in:
 # composeApp/src/desktopMain/extraResources/common/bin/ffmpeg.exe
 # composeApp/src/desktopMain/extraResources/common/bin/yt-dlp.exe
-composeApp/src/desktopMain/extraResources/
+composeApp/src/desktopMain/extraResources/common/bin/ffmpeg.exe
+composeApp/src/desktopMain/extraResources/common/bin/yt-dlp.exe
