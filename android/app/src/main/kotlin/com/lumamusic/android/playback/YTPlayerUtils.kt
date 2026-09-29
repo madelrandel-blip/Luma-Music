@@ -42,6 +42,13 @@ object YTPlayerUtils {
     private const val logTag = "YTPlayerUtils"
     private const val FAILED_CLIENT_BACKOFF_MS = 10 * 60 * 1000L
 
+    // The original OpenTune project's reportException() sent errors to a crash-reporting
+    // service defined elsewhere in its codebase (not carried over here). This local version
+    // just logs — swap in a real crash reporter later if/when Luma Music wants one.
+    private fun reportException(throwable: Throwable) {
+        Timber.tag(logTag).e(throwable, "Reported exception")
+    }
+
     class LoginRequiredForPlaybackException(
         val videoId: String,
         val targetUrl: String,
