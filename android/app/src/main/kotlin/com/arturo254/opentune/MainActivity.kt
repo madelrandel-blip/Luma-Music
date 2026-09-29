@@ -1685,6 +1685,9 @@ class MainActivity : ComponentActivity() {
                                                 Modifier
                                                     .align(Alignment.BottomCenter)
                                                     .height(navSlideDistance)
+                                                    .background(
+                                                        if (pureBlack) Color.Black else MaterialTheme.colorScheme.surfaceContainer
+                                                    )
                                                     .offset {
                                                         if (bottomNavigationBarHeight == 0.dp) {
                                                             IntOffset(
@@ -1716,7 +1719,7 @@ class MainActivity : ComponentActivity() {
                                                 modifier = Modifier
                                                     .align(Alignment.BottomCenter)
                                                     .padding(
-                                                        bottom = bottomInset + floatingBarsBottomPadding,
+                                                        bottom = bottomInset,
                                                     )
                                                     .height(navVisibleHeight),
                                                 onShuffleClick = if (shouldShowHomeShuffleButton) {
