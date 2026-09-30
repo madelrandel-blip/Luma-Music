@@ -2189,25 +2189,21 @@ fun PlayerControlsContent(
         label = "playPauseRoundness",
     )
 
-    Row(
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = PlayerHorizontalPadding),
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            PlayerTitleSection(
-                mediaMetadata = mediaMetadata,
-                textBackgroundColor = textBackgroundColor,
-                navController = navController,
-                state = state,
-                clipboardManager = clipboardManager,
-                context = context
-            )
-        }
+        PlayerTitleSection(
+            mediaMetadata = mediaMetadata,
+            textBackgroundColor = textBackgroundColor,
+            navController = navController,
+            state = state,
+            clipboardManager = clipboardManager,
+            context = context
+        )
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         PlayerTopActions(
             mediaMetadata = mediaMetadata,
