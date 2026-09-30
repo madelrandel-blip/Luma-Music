@@ -53,11 +53,9 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -532,7 +530,7 @@ fun NewMiniPlayerContent(
 
         Spacer(modifier = Modifier.width(4.dp))
 
-        // ── Botón Play/Pause principal (Cookie6Sided) ─────────────────────
+        // ── Botón Play/Pause principal (cuadrado, RoundedCornerShape) ──────
         MiniPlayerPlayPauseButton(
             isPlaying = isPlaying,
             isLoading = isLoading,
@@ -595,7 +593,7 @@ private fun MiniPlayerPlayPauseButton(
                 scaleX = buttonScale
                 scaleY = buttonScale
             },
-        shape = MaterialShapes.Cookie9Sided.toShape(),
+        shape = RoundedCornerShape(ThumbnailCornerRadius),
         colors = IconButtonDefaults.filledIconButtonColors(
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
