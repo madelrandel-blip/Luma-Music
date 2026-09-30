@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.arturo254.opentune.LocalPlayerConnection
 import com.arturo254.opentune.constants.SwipeSensitivityKey
+import com.arturo254.opentune.constants.ThumbnailCornerRadius
 import com.arturo254.opentune.ui.component.BottomSheetState
 import com.arturo254.opentune.utils.rememberPreference
 import kotlin.math.roundToInt
@@ -101,11 +102,11 @@ private fun NewMiniPlayer(
                             backdrop = backdrop,
                             layer = layer,
                             luminanceAnimation = luminanceAnimation.value,
-                            shape = RoundedCornerShape(32.dp)
+                            shape = RoundedCornerShape(ThumbnailCornerRadius)
                         )
                     } else it
                 }
-                .clip(RoundedCornerShape(32.dp))
+                .clip(RoundedCornerShape(ThumbnailCornerRadius))
                 .background(color = if (enableLiquidGlass) Color.Transparent else backgroundColor)
         ) {
             NewMiniPlayerContent(
