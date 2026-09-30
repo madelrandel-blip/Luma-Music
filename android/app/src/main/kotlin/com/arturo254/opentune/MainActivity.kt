@@ -1292,12 +1292,16 @@ class MainActivity : ComponentActivity() {
                                                         searchBarScrollBehavior.state.resetHeightOffset()
                                                     }
                                                 } else {
-                                                    navController.navigate(screen.route) {
-                                                        popUpTo(navController.graph.startDestinationId) {
-                                                            saveState = true
+                                                    val poppedToExisting =
+                                                        navController.popBackStack(screen.route, inclusive = false)
+                                                    if (!poppedToExisting) {
+                                                        navController.navigate(screen.route) {
+                                                            popUpTo(navController.graph.startDestinationId) {
+                                                                saveState = true
+                                                            }
+                                                            launchSingleTop = true
+                                                            restoreState = true
                                                         }
-                                                        launchSingleTop = true
-                                                        restoreState = true
                                                     }
                                                 }
                                             },
@@ -1743,12 +1747,24 @@ class MainActivity : ComponentActivity() {
                                                             searchBarScrollBehavior.state.resetHeightOffset()
                                                         }
                                                     } else {
-                                                        navController.navigate(screen.route) {
-                                                            popUpTo(navController.graph.startDestinationId) {
-                                                                saveState = true
+                                                        // Try a plain pop back to the tab first — this is the
+                                                        // most reliable way to get back to a top-level tab
+                                                        // (Home is always at the bottom of the back stack,
+                                                        // being the start destination) and does not depend on
+                                                        // the saveState/restoreState machinery below, which
+                                                        // could silently no-op from deep screens like
+                                                        // album/artist/playlist. Only fall back to a fresh
+                                                        // navigate() if the tab isn't on the stack at all.
+                                                        val poppedToExisting =
+                                                            navController.popBackStack(screen.route, inclusive = false)
+                                                        if (!poppedToExisting) {
+                                                            navController.navigate(screen.route) {
+                                                                popUpTo(navController.graph.startDestinationId) {
+                                                                    saveState = true
+                                                                }
+                                                                launchSingleTop = true
+                                                                restoreState = true
                                                             }
-                                                            launchSingleTop = true
-                                                            restoreState = true
                                                         }
                                                     }
                                                 },
