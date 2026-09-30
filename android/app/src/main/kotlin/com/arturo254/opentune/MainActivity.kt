@@ -1165,12 +1165,17 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    var shouldShowTopBar by rememberSaveable { mutableStateOf(false) }
-
-                    LaunchedEffect(navBackStackEntry) {
-                        shouldShowTopBar =
-                            !active && navBackStackEntry?.destination?.route in topLevelScreens && navBackStackEntry?.destination?.route != "settings"
-                    }
+                    // Previously tracked as a LaunchedEffect(navBackStackEntry)-driven
+                    // mutableStateOf, but the formula also reads `active` — which the
+                    // effect wasn't keyed on, so toggling search active/inactive without
+                    // a route change (the normal case: activating search never changes
+                    // the route) left this stuck on a stale value. For example, the
+                    // profile/notifications icons could end up permanently hidden after
+                    // closing search, because the last time the effect happened to run
+                    // it had captured active = true. Deriving it directly on every
+                    // recomposition keeps it always in sync with both inputs.
+                    val shouldShowTopBar =
+                        !active && navBackStackEntry?.destination?.route in topLevelScreens && navBackStackEntry?.destination?.route != "settings"
 
                     val coroutineScope = rememberCoroutineScope()
                     var sharedSong: SongItem? by remember {
@@ -1252,8 +1257,17 @@ class MainActivity : ComponentActivity() {
                                     header = { Spacer(Modifier.height(24.dp)) }
                                 ) {
                                     navigationItems.fastForEach { screen ->
-                                        val isSelected =
-                                            navBackStackEntry?.destination?.route == screen.route
+                                        // While the search bar is "active" (focused/expanded),
+                                        // the route never actually changes to "search" — so
+                                        // route-equality alone kept showing Home as selected
+                                        // and made tapping other tabs a no-op (they still
+                                        // matched their old route, and the still-active search
+                                        // overlay masked whatever did change underneath).
+                                        val isSelected = if (screen.route == Screens.Search.route) {
+                                            active || navBackStackEntry?.destination?.route?.startsWith("search/") == true
+                                        } else {
+                                            !active && navBackStackEntry?.destination?.route == screen.route
+                                        }
 
                                         NavigationRailItem(
                                             selected = isSelected,
@@ -1284,23 +1298,34 @@ class MainActivity : ComponentActivity() {
 
                                                 if (screen.route == Screens.Search.route) {
                                                     onActiveChange(true)
-                                                } else if (isSelected) {
-                                                    if(wasPlayerActive) return@NavigationRailItem
-
-                                                    navController.currentBackStackEntry?.savedStateHandle?.set("scrollToTop", true)
-                                                    coroutineScope.launch {
-                                                        searchBarScrollBehavior.state.resetHeightOffset()
-                                                    }
                                                 } else {
-                                                    val poppedToExisting =
-                                                        navController.popBackStack(screen.route, inclusive = false)
-                                                    if (!poppedToExisting) {
-                                                        navController.navigate(screen.route) {
-                                                            popUpTo(navController.graph.startDestinationId) {
-                                                                saveState = true
+                                                    // Leaving search mode takes priority: otherwise the
+                                                    // still-active full-screen search overlay stays up
+                                                    // and tapping any other tab looks like it does
+                                                    // nothing, even though the route underneath it may
+                                                    // have actually changed.
+                                                    if (active) {
+                                                        onActiveChange(false)
+                                                    }
+
+                                                    if (isSelected) {
+                                                        if(wasPlayerActive) return@NavigationRailItem
+
+                                                        navController.currentBackStackEntry?.savedStateHandle?.set("scrollToTop", true)
+                                                        coroutineScope.launch {
+                                                            searchBarScrollBehavior.state.resetHeightOffset()
+                                                        }
+                                                    } else {
+                                                        val poppedToExisting =
+                                                            navController.popBackStack(screen.route, inclusive = false)
+                                                        if (!poppedToExisting) {
+                                                            navController.navigate(screen.route) {
+                                                                popUpTo(navController.graph.startDestinationId) {
+                                                                    saveState = true
+                                                                }
+                                                                launchSingleTop = true
+                                                                restoreState = true
                                                             }
-                                                            launchSingleTop = true
-                                                            restoreState = true
                                                         }
                                                     }
                                                 }
@@ -1748,37 +1773,61 @@ class MainActivity : ComponentActivity() {
                                                     // "selected" even while on unrelated screens (Settings,
                                                     // Artist, etc.), which made tapping Home just try to
                                                     // scroll-to-top instead of actually navigating there.
-                                                    navBackStackEntry?.destination?.route == screen.route
+                                                    //
+                                                    // The search tab is a special case: activating search
+                                                    // never actually changes the route (it just expands the
+                                                    // search bar over whatever screen you were on), so route
+                                                    // equality alone would keep the *previous* tab marked as
+                                                    // selected — and would leave that previous tab's own
+                                                    // "isSelected" also true, so tapping it again from within
+                                                    // active search just no-opped into a scroll-to-top instead
+                                                    // of navigating anywhere.
+                                                    if (screen.route == Screens.Search.route) {
+                                                        active || navBackStackEntry?.destination?.route?.startsWith("search/") == true
+                                                    } else {
+                                                        !active && navBackStackEntry?.destination?.route == screen.route
+                                                    }
                                                 },
                                                 onItemClick = { screen, isSelected ->
                                                     if (screen.route == Screens.Search.route) {
                                                         onActiveChange(true)
-                                                    } else if (isSelected) {
-                                                        navController.currentBackStackEntry?.savedStateHandle?.set(
-                                                            "scrollToTop",
-                                                            true
-                                                        )
-                                                        coroutineScope.launch {
-                                                            searchBarScrollBehavior.state.resetHeightOffset()
-                                                        }
                                                     } else {
-                                                        // Try a plain pop back to the tab first — this is the
-                                                        // most reliable way to get back to a top-level tab
-                                                        // (Home is always at the bottom of the back stack,
-                                                        // being the start destination) and does not depend on
-                                                        // the saveState/restoreState machinery below, which
-                                                        // could silently no-op from deep screens like
-                                                        // album/artist/playlist. Only fall back to a fresh
-                                                        // navigate() if the tab isn't on the stack at all.
-                                                        val poppedToExisting =
-                                                            navController.popBackStack(screen.route, inclusive = false)
-                                                        if (!poppedToExisting) {
-                                                            navController.navigate(screen.route) {
-                                                                popUpTo(navController.graph.startDestinationId) {
-                                                                    saveState = true
+                                                        // Leaving search mode takes priority: otherwise the
+                                                        // still-active full-screen search overlay stays up and
+                                                        // tapping any other tab looks like it does nothing,
+                                                        // even though the route underneath it may have
+                                                        // actually changed.
+                                                        if (active) {
+                                                            onActiveChange(false)
+                                                        }
+
+                                                        if (isSelected) {
+                                                            navController.currentBackStackEntry?.savedStateHandle?.set(
+                                                                "scrollToTop",
+                                                                true
+                                                            )
+                                                            coroutineScope.launch {
+                                                                searchBarScrollBehavior.state.resetHeightOffset()
+                                                            }
+                                                        } else {
+                                                            // Try a plain pop back to the tab first — this is the
+                                                            // most reliable way to get back to a top-level tab
+                                                            // (Home is always at the bottom of the back stack,
+                                                            // being the start destination) and does not depend on
+                                                            // the saveState/restoreState machinery below, which
+                                                            // could silently no-op from deep screens like
+                                                            // album/artist/playlist. Only fall back to a fresh
+                                                            // navigate() if the tab isn't on the stack at all.
+                                                            val poppedToExisting =
+                                                                navController.popBackStack(screen.route, inclusive = false)
+                                                            if (!poppedToExisting) {
+                                                                navController.navigate(screen.route) {
+                                                                    popUpTo(navController.graph.startDestinationId) {
+                                                                        saveState = true
+                                                                    }
+                                                                    launchSingleTop = true
+                                                                    restoreState = true
                                                                 }
-                                                                launchSingleTop = true
-                                                                restoreState = true
                                                             }
                                                         }
                                                     }
