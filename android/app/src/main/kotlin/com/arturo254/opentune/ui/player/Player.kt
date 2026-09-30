@@ -1618,7 +1618,25 @@ fun BottomSheetPlayer(
                             Thumbnail(
                                 sliderPositionProvider = { sliderPosition },
                                 modifier = Modifier.nestedScroll(state.preUpPostDownNestedScrollConnection),
-                                isPlayerExpanded = state.isExpanded
+                                isPlayerExpanded = state.isExpanded,
+                                onExpandQueue = { queueSheetState.expandSoft() },
+                                onOpenMenu = {
+                                    mediaMetadata?.let { metadata ->
+                                        menuState.show {
+                                            PlayerMenu(
+                                                mediaMetadata = metadata,
+                                                navController = navController,
+                                                playerBottomSheetState = state,
+                                                onShowDetailsDialog = {
+                                                    bottomSheetPageState.show {
+                                                        ShowMediaInfo(metadata.id)
+                                                    }
+                                                },
+                                                onDismiss = menuState::dismiss
+                                            )
+                                        }
+                                    }
+                                }
                             )
                         }
 

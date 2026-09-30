@@ -62,6 +62,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -100,6 +101,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
@@ -147,40 +149,47 @@ fun PlayerTitleSection(
     navController: NavController,
     state: BottomSheetState,
     clipboardManager: ClipboardManager,
-    context: Context
+    context: Context,
+    centered: Boolean = false
 ) {
-    AnimatedContent(
-        targetState = mediaMetadata.title,
-        transitionSpec = { fadeIn() togetherWith fadeOut() },
-        label = "",
-    ) { title ->
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            color = textBackgroundColor,
-            modifier =
-                Modifier
-                    .basicMarquee()
-                    .combinedClickable(
-                        enabled = true,
-                        indication = null,
-                        interactionSource = remember { MutableInteractionSource() },
-                        onClick = {
-                            if (mediaMetadata.album != null) {
-                                state.snapTo(state.collapsedBound)
-                                navController.navigate("album/${mediaMetadata.album.id}")
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = if (centered) Alignment.Center else Alignment.CenterStart
+    ) {
+        AnimatedContent(
+            targetState = mediaMetadata.title,
+            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            label = "",
+        ) { title ->
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = if (centered) TextAlign.Center else TextAlign.Start,
+                color = textBackgroundColor,
+                modifier =
+                    Modifier
+                        .basicMarquee()
+                        .combinedClickable(
+                            enabled = true,
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() },
+                            onClick = {
+                                if (mediaMetadata.album != null) {
+                                    state.snapTo(state.collapsedBound)
+                                    navController.navigate("album/${mediaMetadata.album.id}")
+                                }
+                            },
+                            onLongClick = {
+                                val clip = ClipData.newPlainText("Copied Title", title)
+                                clipboardManager.setPrimaryClip(clip)
+                                Toast.makeText(context, "Copied Title", Toast.LENGTH_SHORT).show()
                             }
-                        },
-                        onLongClick = {
-                            val clip = ClipData.newPlainText("Copied Title", title)
-                            clipboardManager.setPrimaryClip(clip)
-                            Toast.makeText(context, "Copied Title", Toast.LENGTH_SHORT).show()
-                        }
-                    ),
-        )
+                        ),
+            )
+        }
     }
 
     Spacer(Modifier.height(6.dp))
@@ -201,7 +210,8 @@ fun PlayerTitleSection(
         modifier = Modifier
             .fillMaxWidth()
             .basicMarquee()
-            .padding(end = 12.dp)
+            .let { if (centered) it else it.padding(end = 12.dp) },
+        contentAlignment = if (centered) Alignment.Center else Alignment.CenterStart
     ) {
         var layoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
         var clickOffset by remember { mutableStateOf<Offset?>(null) }
@@ -2189,51 +2199,131 @@ fun PlayerControlsContent(
         label = "playPauseRoundness",
     )
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = PlayerHorizontalPadding),
-    ) {
-        PlayerTitleSection(
-            mediaMetadata = mediaMetadata,
-            textBackgroundColor = textBackgroundColor,
-            navController = navController,
-            state = state,
-            clipboardManager = clipboardManager,
-            context = context
-        )
+    if (playerDesignStyle == PlayerDesignStyle.V4) {
+        // Portada -> título -> artista, todo centrado, y compartir/corazón
+        // a los lados de la barra de progreso (el botón de menú "..." vive
+        // ahora en la cabecera "Reproduciendo ahora" de Thumbnail.kt).
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = PlayerHorizontalPadding),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            PlayerTitleSection(
+                mediaMetadata = mediaMetadata,
+                textBackgroundColor = textBackgroundColor,
+                navController = navController,
+                state = state,
+                clipboardManager = clipboardManager,
+                context = context,
+                centered = true
+            )
+        }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(Modifier.height(16.dp))
 
-        PlayerTopActions(
-            mediaMetadata = mediaMetadata,
-            playerDesignStyle = playerDesignStyle,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = PlayerHorizontalPadding - 8.dp),
+        ) {
+            if (currentSong?.song?.isLocal != true) {
+                IconButton(
+                    onClick = {
+                        val intent = Intent().apply {
+                            action = Intent.ACTION_SEND
+                            type = "text/plain"
+                            putExtra(
+                                Intent.EXTRA_TEXT,
+                                "https://music.youtube.com/watch?v=${mediaMetadata.id}"
+                            )
+                        }
+                        context.startActivity(Intent.createChooser(intent, null))
+                    }
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.share),
+                        contentDescription = null,
+                        tint = textBackgroundColor,
+                    )
+                }
+            } else {
+                Spacer(modifier = Modifier.width(48.dp))
+            }
+
+            Box(modifier = Modifier.weight(1f)) {
+                PlayerSlider(
+                    sliderStyle = sliderStyle,
+                    sliderPosition = sliderPosition,
+                    position = position,
+                    duration = duration,
+                    isPlaying = isPlaying,
+                    textButtonColor = textButtonColor,
+                    onValueChange = onSliderValueChange,
+                    onValueChangeFinished = onSliderValueChangeFinished
+                )
+            }
+
+            IconButton(
+                onClick = { playerConnection.toggleLike() }
+            ) {
+                Icon(
+                    painter = painterResource(
+                        if (currentSongLiked) R.drawable.favorite else R.drawable.favorite_border
+                    ),
+                    contentDescription = null,
+                    tint = if (currentSongLiked) MaterialTheme.colorScheme.error else textBackgroundColor,
+                )
+            }
+        }
+    } else {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = PlayerHorizontalPadding),
+        ) {
+            PlayerTitleSection(
+                mediaMetadata = mediaMetadata,
+                textBackgroundColor = textBackgroundColor,
+                navController = navController,
+                state = state,
+                clipboardManager = clipboardManager,
+                context = context
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            PlayerTopActions(
+                mediaMetadata = mediaMetadata,
+                playerDesignStyle = playerDesignStyle,
+                textButtonColor = textButtonColor,
+                iconButtonColor = iconButtonColor,
+                textBackgroundColor = textBackgroundColor,
+                playerConnection = playerConnection,
+                navController = navController,
+                menuState = menuState,
+                state = state,
+                bottomSheetPageState = bottomSheetPageState,
+                context = context,
+                currentSongLiked = currentSongLiked,
+                isLocalSong = currentSong?.song?.isLocal == true
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        PlayerSlider(
+            sliderStyle = sliderStyle,
+            sliderPosition = sliderPosition,
+            position = position,
+            duration = duration,
+            isPlaying = isPlaying,
             textButtonColor = textButtonColor,
-            iconButtonColor = iconButtonColor,
-            textBackgroundColor = textBackgroundColor,
-            playerConnection = playerConnection,
-            navController = navController,
-            menuState = menuState,
-            state = state,
-            bottomSheetPageState = bottomSheetPageState,
-            context = context,
-            currentSongLiked = currentSongLiked,
-            isLocalSong = currentSong?.song?.isLocal == true
+            onValueChange = onSliderValueChange,
+            onValueChangeFinished = onSliderValueChangeFinished
         )
     }
-
-    Spacer(Modifier.height(12.dp))
-
-    PlayerSlider(
-        sliderStyle = sliderStyle,
-        sliderPosition = sliderPosition,
-        position = position,
-        duration = duration,
-        isPlaying = isPlaying,
-        textButtonColor = textButtonColor,
-        onValueChange = onSliderValueChange,
-        onValueChangeFinished = onSliderValueChangeFinished
-    )
 
     Spacer(Modifier.height(4.dp))
 
