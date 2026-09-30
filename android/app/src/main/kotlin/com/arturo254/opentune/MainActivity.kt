@@ -1615,6 +1615,14 @@ class MainActivity : ComponentActivity() {
 
                                         if(useRail) return@Box
 
+                                        // Don't even compose the nav bar's background/hit area while the
+                                        // full-screen player is expanded. The slide-away offset below is
+                                        // spring-animated and can settle a hair short of fully off-screen,
+                                        // leaving a sliver of the (non-clickable) background box sitting on
+                                        // top of the player's own controls — visually covering them while
+                                        // still passing touches through to whatever is underneath.
+                                        if (playerBottomSheetState.isExpanded) return@Box
+
                                         val navSlideDistance =
                                             bottomInset + floatingBarsBottomPadding + navVisibleHeight
 
