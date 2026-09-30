@@ -868,9 +868,13 @@ class MainActivity : ComponentActivity() {
 
                     val shouldShowNavigationBar =
                         remember(navBackStackEntry, active) {
-                            navBackStackEntry?.destination?.route == null ||
-                                    navigationItems.fastAny { it.route == navBackStackEntry?.destination?.route } &&
-                                    !active
+                            // Previously only shown on the 4 top-level tabs (Home/Search/
+                            // Library/Mood) and hidden on every sub-screen (Settings,
+                            // Artist, Album, etc). Now kept visible everywhere except
+                            // while actively typing in search, so it behaves like a
+                            // normal persistent bottom nav instead of disappearing when
+                            // navigating into menus.
+                            !active
                         }
 
                     val shouldShowHomeShuffleButton =
