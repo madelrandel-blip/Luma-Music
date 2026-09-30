@@ -1073,7 +1073,7 @@ fun QueueCollapsedContentV4(
         }
 
         Row(
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
@@ -1087,94 +1087,22 @@ fun QueueCollapsedContentV4(
             val buttonSize = 48.dp
             val iconSize = 22.dp
 
-            // Queue button (pill)
+            // Lyrics button (pill) - the queue button and sleep timer button
+            // used to live here too, but the queue is now reachable from the
+            // top bar, and the sleep timer button was removed, so "Letras"
+            // is the only button left, centered.
             Box(
                 modifier = Modifier
                     .height(buttonSize)
-                    .weight(1f)
                     .clip(RoundedCornerShape(16.dp))
                     .background(textBackgroundColor.copy(alpha = 0.1f))
-                    .clickable { onExpandQueue() },
+                    .clickable { onShowLyrics() }
+                    .padding(horizontal = 24.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Row(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.queue_music),
-                        contentDescription = null,
-                        modifier = Modifier.size(iconSize),
-                        tint = textBackgroundColor
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = stringResource(id = R.string.queue),
-                        color = textBackgroundColor,
-                        style = MaterialTheme.typography.labelLarge,
-                        maxLines = 1
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(10.dp))
-
-            // Sleep timer button (circle)
-            Box(
-                modifier = Modifier
-                    .size(buttonSize)
-                    .clip(CircleShape)
-                    .background(
-                        if (sleepTimerEnabled) textBackgroundColor.copy(alpha = 0.2f)
-                        else textBackgroundColor.copy(alpha = 0.1f)
-                    )
-                    .clickable { onSleepTimerClick() },
-                contentAlignment = Alignment.Center
-            ) {
-                AnimatedContent(
-                    label = "sleepTimer",
-                    targetState = sleepTimerEnabled,
-                ) { enabled ->
-                    if (enabled) {
-                        Text(
-                            text = makeTimeString(sleepTimerTimeLeft),
-                            color = textBackgroundColor,
-                            style = MaterialTheme.typography.labelSmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .basicMarquee()
-                        )
-                    } else {
-                        Icon(
-                            painter = painterResource(id = R.drawable.bedtime),
-                            contentDescription = null,
-                            modifier = Modifier.size(iconSize),
-                            tint = textBackgroundColor
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.width(10.dp))
-
-            // Lyrics button (pill)
-            Box(
-                modifier = Modifier
-                    .height(buttonSize)
-                    .weight(1f)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(textBackgroundColor.copy(alpha = 0.1f))
-                    .clickable { onShowLyrics() },
-                contentAlignment = Alignment.Center
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxSize()
                 ) {
                     Icon(
                         painter = painterResource(id = R.drawable.lyrics),
