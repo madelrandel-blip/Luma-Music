@@ -174,6 +174,8 @@ import com.arturo254.opentune.constants.AppLanguageKey
 import com.arturo254.opentune.constants.CustomThemeColorKey
 import com.arturo254.opentune.constants.DarkModeKey
 import com.arturo254.opentune.constants.DefaultOpenTabKey
+import com.arturo254.opentune.constants.GuestAvatarUriKey
+import com.arturo254.opentune.constants.GuestModeEnabledKey
 import com.arturo254.opentune.constants.DisableScreenshotKey
 import com.arturo254.opentune.constants.DynamicThemeKey
 import com.arturo254.opentune.constants.FloatingToolbarBottomPadding
@@ -770,6 +772,13 @@ class MainActivity : ComponentActivity() {
                     }
                     val homeViewModel: HomeViewModel = hiltViewModel()
                     val accountImageUrl by homeViewModel.accountImageUrl.collectAsState()
+                    // Guest profile - local-only avatar shown when there's no real
+                    // YouTube account signed in but the user picked a guest photo.
+                    val (guestModeEnabled) = rememberPreference(GuestModeEnabledKey, false)
+                    val (guestAvatarUri) = rememberPreference(GuestAvatarUriKey, "")
+                    val isGuest = guestModeEnabled && accountImageUrl == null
+                    val topBarAvatarUrl = accountImageUrl
+                        ?: guestAvatarUri.takeIf { isGuest && it.isNotBlank() }
                     val allLocalItems by homeViewModel.allLocalItems.collectAsState()
                     val allYtItems by homeViewModel.allYtItems.collectAsState()
                     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -1406,9 +1415,9 @@ class MainActivity : ComponentActivity() {
                                                                 }
                                                             }
                                                         ) {
-                                                            if (accountImageUrl != null) {
+                                                            if (topBarAvatarUrl != null) {
                                                                 AsyncImage(
-                                                                    model = accountImageUrl,
+                                                                    model = topBarAvatarUrl,
                                                                     contentDescription = stringResource(R.string.account),
                                                                     modifier = Modifier
                                                                         .size(30.dp)
