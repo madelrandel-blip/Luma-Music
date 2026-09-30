@@ -9,6 +9,8 @@
 package com.arturo254.opentune.ui.screens.settings
 
 import android.content.Intent
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -77,6 +79,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -389,6 +392,13 @@ fun AccountSettings(
 
 @Composable
 private fun AccountSettingsHeader(onClose: () -> Unit) {
+    val context = LocalContext.current
+    // Adaptive icons (mipmap/ic_launcher) are a layered XML, not a plain
+    // VectorDrawable or raster asset, so painterResource() can't load them
+    // directly - decode it through the platform drawable APIs instead.
+    val appIconBitmap = remember {
+        ContextCompat.getDrawable(context, R.mipmap.ic_launcher)?.toBitmap()?.asImageBitmap()
+    }
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -414,13 +424,22 @@ private fun AccountSettingsHeader(onClose: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // App Icon (Luma Music logo)
-                Image(
-                    painter = painterResource(R.mipmap.ic_launcher),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                )
+                if (appIconBitmap != null) {
+                    Image(
+                        bitmap = appIconBitmap,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                    )
+                } else {
+                    Icon(
+                        painter = painterResource(R.drawable.opentune),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(44.dp)
+                    )
+                }
 
                 Text(
                     text = stringResource(id = R.string.app_name),
