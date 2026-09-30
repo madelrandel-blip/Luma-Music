@@ -8,6 +8,9 @@
 
 package com.arturo254.opentune.ui.screens.settings
 
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
@@ -52,6 +55,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -97,6 +101,9 @@ import com.arturo254.opentune.constants.AccountChannelHandleKey
 import com.arturo254.opentune.constants.AccountEmailKey
 import com.arturo254.opentune.constants.AccountNameKey
 import com.arturo254.opentune.constants.DataSyncIdKey
+import com.arturo254.opentune.constants.GuestAvatarUriKey
+import com.arturo254.opentune.constants.GuestModeEnabledKey
+import com.arturo254.opentune.constants.GuestNameKey
 import com.arturo254.opentune.constants.InnerTubeCookieKey
 import com.arturo254.opentune.constants.PoTokenKey
 import com.arturo254.opentune.constants.SelectedYtmPlaylistsKey
@@ -137,6 +144,12 @@ fun AccountSettings(
     val (useLoginForBrowse, onUseLoginForBrowseChange) = rememberPreference(UseLoginForBrowse, true)
     val (ytmSync, onYtmSyncChange) = rememberPreference(YtmSyncKey, true)
 
+    // Guest profile - local-only name + photo, no real account
+    val (guestModeEnabled, onGuestModeEnabledChange) = rememberPreference(GuestModeEnabledKey, false)
+    val (guestName, onGuestNameChange) = rememberPreference(GuestNameKey, "")
+    val (guestAvatarUri, onGuestAvatarUriChange) = rememberPreference(GuestAvatarUriKey, "")
+    val isGuest = guestModeEnabled && !isLoggedIn
+
     val viewModel: HomeViewModel = hiltViewModel()
     val accountName by viewModel.accountName.collectAsState()
     val accountImageUrl by viewModel.accountImageUrl.collectAsState()
@@ -144,6 +157,8 @@ fun AccountSettings(
     var showToken by remember { mutableStateOf(false) }
     var showTokenEditor by remember { mutableStateOf(false) }
     var showPlaylistDialog by remember { mutableStateOf(false) }
+    var showLoginChoiceDialog by remember { mutableStateOf(false) }
+    var showGuestProfileDialog by remember { mutableStateOf(false) }
 
     val hasUpdate = !Updater.isSameVersion(latestVersionName, BuildConfig.VERSION_NAME)
 
@@ -165,19 +180,65 @@ fun AccountSettings(
                 accountName = accountName,
                 accountEmail = accountEmail,
                 accountImageUrl = accountImageUrl,
+                isGuest = isGuest,
+                guestName = guestName.ifBlank { stringResource(R.string.guest_default_name) },
+                guestAvatarUri = guestAvatarUri.ifBlank { null },
                 onAccountClick = {
-                    onClose()
-                    if (isLoggedIn) {
-                        navController.navigate("account")
-                    } else {
-                        navController.navigate(buildLoginRoute())
+                    when {
+                        isLoggedIn -> {
+                            onClose()
+                            navController.navigate("account")
+                        }
+                        isGuest -> {
+                            showGuestProfileDialog = true
+                        }
+                        else -> {
+                            showLoginChoiceDialog = true
+                        }
                     }
                 },
                 onLogout = {
-                    onInnerTubeCookieChange("")
-                    forgetAccount(context)
+                    if (isLoggedIn) {
+                        onInnerTubeCookieChange("")
+                        forgetAccount(context)
+                    } else if (isGuest) {
+                        onGuestModeEnabledChange(false)
+                        onGuestNameChange("")
+                        onGuestAvatarUriChange("")
+                    }
                 }
             )
+
+            // Choose between a real YouTube Premium login or a local guest profile
+            if (showLoginChoiceDialog) {
+                LoginChoiceDialog(
+                    onDismiss = { showLoginChoiceDialog = false },
+                    onChooseYoutube = {
+                        showLoginChoiceDialog = false
+                        onClose()
+                        navController.navigate(buildLoginRoute())
+                    },
+                    onChooseGuest = {
+                        showLoginChoiceDialog = false
+                        showGuestProfileDialog = true
+                    }
+                )
+            }
+
+            // Guest profile editor (username + photo)
+            if (showGuestProfileDialog) {
+                GuestProfileDialog(
+                    initialName = guestName,
+                    initialAvatarUri = guestAvatarUri,
+                    onDismiss = { showGuestProfileDialog = false },
+                    onSave = { name, avatarUri ->
+                        onGuestNameChange(name)
+                        onGuestAvatarUriChange(avatarUri.orEmpty())
+                        onGuestModeEnabledChange(true)
+                        showGuestProfileDialog = false
+                    }
+                )
+            }
 
             // Token Editor Dialog
             if (showTokenEditor) {
@@ -352,12 +413,13 @@ private fun AccountSettingsHeader(onClose: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // App Icon
-                Icon(
-                    painter = painterResource(R.drawable.opentune),
+                // App Icon (Luma Music logo)
+                Image(
+                    painter = painterResource(R.mipmap.ic_launcher),
                     contentDescription = null,
                     modifier = Modifier
                         .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
                 )
 
                 Text(
@@ -390,11 +452,18 @@ private fun AccountCard(
     accountName: String,
     accountEmail: String,
     accountImageUrl: String?,
+    isGuest: Boolean = false,
+    guestName: String = "",
+    guestAvatarUri: String? = null,
     onAccountClick: () -> Unit,
     onLogout: () -> Unit
 ) {
+    // "Signed in" in the visual sense: either a real account or an active
+    // guest profile - both get the filled card style and a way to exit.
+    val hasActiveProfile = isLoggedIn || isGuest
+
     val cardColor by animateColorAsState(
-        targetValue = if (isLoggedIn)
+        targetValue = if (hasActiveProfile)
             MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
         else
             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -423,16 +492,17 @@ private fun AccountCard(
                     .size(60.dp)
                     .clip(CircleShape)
                     .background(
-                        if (isLoggedIn)
+                        if (hasActiveProfile)
                             MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
                         else
                             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f)
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                if (isLoggedIn && accountImageUrl != null) {
+                val avatarUrl = if (isLoggedIn) accountImageUrl else if (isGuest) guestAvatarUri else null
+                if (avatarUrl != null) {
                     AsyncImage(
-                        model = accountImageUrl,
+                        model = avatarUrl,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
@@ -442,11 +512,15 @@ private fun AccountCard(
                 } else {
                     Icon(
                         painter = painterResource(
-                            if (isLoggedIn) R.drawable.account else R.drawable.login
+                            when {
+                                isLoggedIn -> R.drawable.account
+                                isGuest -> R.drawable.person
+                                else -> R.drawable.login
+                            }
                         ),
                         contentDescription = null,
                         modifier = Modifier.size(28.dp),
-                        tint = if (isLoggedIn)
+                        tint = if (hasActiveProfile)
                             MaterialTheme.colorScheme.primary
                         else
                             MaterialTheme.colorScheme.onSurfaceVariant
@@ -459,7 +533,11 @@ private fun AccountCard(
             // Account Info
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (isLoggedIn) accountName else stringResource(R.string.login),
+                    text = when {
+                        isLoggedIn -> accountName
+                        isGuest -> guestName
+                        else -> stringResource(R.string.login)
+                    },
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -471,6 +549,15 @@ private fun AccountCard(
                     Spacer(Modifier.height(2.dp))
                     Text(
                         text = accountEmail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                } else if (isGuest) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = stringResource(R.string.continue_as_guest),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -497,6 +584,18 @@ private fun AccountCard(
                         style = MaterialTheme.typography.labelMedium
                     )
                 }
+            } else if (isGuest) {
+                FilledTonalButton(
+                    onClick = onLogout,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.exit_guest_mode),
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             } else {
                 Icon(
                     painter = painterResource(R.drawable.arrow_forward),
@@ -506,6 +605,207 @@ private fun AccountCard(
             }
         }
     }
+}
+
+/**
+ * Shown when the user taps "Login" with no account and no guest profile
+ * active yet: let them pick between a real YouTube Premium sign-in and a
+ * local-only guest profile (just a name + photo, no account required).
+ */
+@Composable
+private fun LoginChoiceDialog(
+    onDismiss: () -> Unit,
+    onChooseYoutube: () -> Unit,
+    onChooseGuest: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = stringResource(R.string.login_choice_title),
+                style = MaterialTheme.typography.titleLarge
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                LoginChoiceOption(
+                    icon = R.drawable.login,
+                    title = stringResource(R.string.login_with_youtube),
+                    subtitle = stringResource(R.string.login_with_youtube_desc),
+                    onClick = onChooseYoutube
+                )
+                LoginChoiceOption(
+                    icon = R.drawable.person,
+                    title = stringResource(R.string.continue_as_guest),
+                    subtitle = stringResource(R.string.continue_as_guest_desc),
+                    onClick = onChooseGuest
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        }
+    )
+}
+
+@Composable
+private fun LoginChoiceOption(
+    icon: Int,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(icon),
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        Spacer(Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Icon(
+            painter = painterResource(R.drawable.arrow_forward),
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+/**
+ * Lets a guest pick a display name and a photo from their device - stored
+ * locally only, no account is created anywhere.
+ */
+@Composable
+private fun GuestProfileDialog(
+    initialName: String,
+    initialAvatarUri: String,
+    onDismiss: () -> Unit,
+    onSave: (name: String, avatarUri: String?) -> Unit
+) {
+    val context = LocalContext.current
+    var name by remember { mutableStateOf(initialName) }
+    var avatarUri by remember { mutableStateOf(initialAvatarUri.ifBlank { null }) }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: Exception) {
+                // Some providers don't support persistable permissions; the
+                // uri may still work for this session.
+            }
+            avatarUri = uri.toString()
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = stringResource(R.string.guest_profile_title),
+                style = MaterialTheme.typography.titleLarge
+            )
+        },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    modifier = Modifier
+                        .size(84.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                        .clickable { photoPickerLauncher.launch(arrayOf("image/*")) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (avatarUri != null) {
+                        AsyncImage(
+                            model = avatarUri,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(84.dp)
+                                .clip(CircleShape)
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(R.drawable.person),
+                            contentDescription = null,
+                            modifier = Modifier.size(36.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                TextButton(onClick = { photoPickerLauncher.launch(arrayOf("image/*")) }) {
+                    Text(stringResource(R.string.choose_photo))
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.guest_username_label)) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(name.trim(), avatarUri) }
+            ) {
+                Text(stringResource(android.R.string.ok))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        }
+    )
 }
 
 @Composable

@@ -448,6 +448,16 @@
     <string name="login">Login</string>
     <string name="not_logged_in">Not logged in</string>
     <string name="login_failed">Login failed</string>
+    <string name="login_choice_title">How do you want to continue?</string>
+    <string name="login_with_youtube">Continue with YouTube Premium</string>
+    <string name="login_with_youtube_desc">Sign in to sync your library, playlists and likes</string>
+    <string name="continue_as_guest">Continue as guest</string>
+    <string name="continue_as_guest_desc">Pick a name and photo, no account needed</string>
+    <string name="guest_profile_title">Guest profile</string>
+    <string name="guest_username_label">Username</string>
+    <string name="guest_default_name">Guest</string>
+    <string name="choose_photo">Choose photo</string>
+    <string name="exit_guest_mode">Exit guest mode</string>
     <string name="playback_requires_youtube_music_confirmation">Confirm playback in YouTube Music, then return to Luma Music.</string>
     <string name="content_language">Default content language</string>
     <string name="content_country">Default content country</string>

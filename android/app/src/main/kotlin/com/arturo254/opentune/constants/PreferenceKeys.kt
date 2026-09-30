@@ -502,6 +502,12 @@ val AccountEmailKey = stringPreferencesKey("accountEmail")
 val AccountChannelHandleKey = stringPreferencesKey("accountChannelHandle")
 val UseLoginForBrowse = booleanPreferencesKey("useLoginForBrowse")
 
+// Guest profile - a local-only display name + photo for people who don't
+// want to sign in with a real YouTube account.
+val GuestModeEnabledKey = booleanPreferencesKey("guestModeEnabled")
+val GuestNameKey = stringPreferencesKey("guestName")
+val GuestAvatarUriKey = stringPreferencesKey("guestAvatarUri")
+
 val WebClientPoTokenEnabledKey = booleanPreferencesKey("webClientPoTokenEnabled")
 val PoTokenGvsKey = stringPreferencesKey("poTokenGvs")
 val PoTokenPlayerKey = stringPreferencesKey("poTokenPlayer")

@@ -371,6 +371,16 @@
     <string name="login">Acceder</string>
     <string name="not_logged_in">No has iniciado sesión</string>
     <string name="login_failed">Fallo al iniciar sesión</string>
+    <string name="login_choice_title">¿Cómo quieres continuar?</string>
+    <string name="login_with_youtube">Continuar con YouTube Premium</string>
+    <string name="login_with_youtube_desc">Inicia sesión para sincronizar tu biblioteca, listas y me gusta</string>
+    <string name="continue_as_guest">Continuar como invitado</string>
+    <string name="continue_as_guest_desc">Elige un nombre y una foto, sin necesidad de cuenta</string>
+    <string name="guest_profile_title">Perfil de invitado</string>
+    <string name="guest_username_label">Nombre de usuario</string>
+    <string name="guest_default_name">Invitado</string>
+    <string name="choose_photo">Elegir foto</string>
+    <string name="exit_guest_mode">Salir del modo invitado</string>
     <string name="content_language">Idioma por defecto del contenido</string>
     <string name="content_country">País por defecto del contenido</string>
     <string name="system_default">Predeterminado del sistema</string>
