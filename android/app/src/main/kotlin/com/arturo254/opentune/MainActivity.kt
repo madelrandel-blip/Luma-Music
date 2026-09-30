@@ -1615,13 +1615,20 @@ class MainActivity : ComponentActivity() {
 
                                         if(useRail) return@Box
 
-                                        // Don't even compose the nav bar's background/hit area while the
-                                        // full-screen player is expanded. The slide-away offset below is
-                                        // spring-animated and can settle a hair short of fully off-screen,
-                                        // leaving a sliver of the (non-clickable) background box sitting on
-                                        // top of the player's own controls — visually covering them while
-                                        // still passing touches through to whatever is underneath.
-                                        if (playerBottomSheetState.isExpanded) return@Box
+                                        // Don't even compose the nav bar's background/hit area once the
+                                        // full-screen player starts expanding. `isExpanded` only flips
+                                        // once the expand animation has fully settled, so gating on it
+                                        // alone left the overlay Box composed (and sliding away via its
+                                        // own spring/progress-based offset animation) for the entire
+                                        // duration of the expand transition — a visible multi-second
+                                        // delay before it actually disappeared. Gating on `progress`
+                                        // instead drops the overlay the instant any expansion begins,
+                                        // regardless of how long the expand animation itself takes. A
+                                        // small epsilon avoids flicker from floating-point noise while
+                                        // fully collapsed (where progress should read exactly 0f).
+                                        if (playerBottomSheetState.isExpanded ||
+                                            playerBottomSheetState.progress > 0.01f
+                                        ) return@Box
 
                                         val navSlideDistance =
                                             bottomInset + floatingBarsBottomPadding + navVisibleHeight
