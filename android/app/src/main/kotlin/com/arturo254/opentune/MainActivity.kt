@@ -1253,7 +1253,7 @@ class MainActivity : ComponentActivity() {
                                 ) {
                                     navigationItems.fastForEach { screen ->
                                         val isSelected =
-                                            navBackStackEntry?.destination?.hierarchy?.any { it.route == screen.route } == true
+                                            navBackStackEntry?.destination?.route == screen.route
 
                                         NavigationRailItem(
                                             selected = isSelected,
@@ -1723,8 +1723,13 @@ class MainActivity : ComponentActivity() {
                                                 } else null,
                                                 musicRecognitionContentDescription = if (shouldShowHomeShuffleButton) stringResource(R.string.music_recognition) else "",
                                                 isSelected = { screen ->
-                                                    navBackStackEntry?.destination?.hierarchy?.any { it.route == screen.route } ==
-                                                            true
+                                                    // Compare the exact current route rather than the whole
+                                                    // hierarchy: this graph is flat (no nested sub-graphs), and
+                                                    // a hierarchy-based match was making Home register as
+                                                    // "selected" even while on unrelated screens (Settings,
+                                                    // Artist, etc.), which made tapping Home just try to
+                                                    // scroll-to-top instead of actually navigating there.
+                                                    navBackStackEntry?.destination?.route == screen.route
                                                 },
                                                 onItemClick = { screen, isSelected ->
                                                     if (screen.route == Screens.Search.route) {
