@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -47,7 +48,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -57,7 +57,6 @@ import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.WavyProgressIndicatorDefaults
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -71,8 +70,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -89,6 +86,7 @@ import kotlinx.coroutines.launch
 import com.arturo254.opentune.R
 import com.arturo254.opentune.constants.EnableHapticFeedbackKey
 import com.arturo254.opentune.constants.MiniPlayerHeight
+import com.arturo254.opentune.constants.ThumbnailCornerRadius
 import com.arturo254.opentune.extensions.togglePlayPause
 import com.arturo254.opentune.models.MediaMetadata
 import com.arturo254.opentune.playback.PlayerConnection
@@ -285,72 +283,39 @@ fun RowScope.MiniPlayerInfo(
 @Composable
 private fun MiniPlayerArtwork(
     mediaMetadata: MediaMetadata?,
-    position: Long,
-    duration: Long,
-    isLoading: Boolean,
     modifier: Modifier = Modifier
 ) {
+    // No more circular progress ring wrapping the thumbnail (it used to cover
+    // part of the play button area) and the thumbnail itself is now a
+    // rounded square instead of a circle - playback progress is shown as a
+    // flat bar along the bottom of the mini player instead (see
+    // NewMiniPlayerContent).
     Box(
         contentAlignment = Alignment.Center,
-        modifier = modifier.size(44.dp)
+        modifier = modifier
+            .size(44.dp)
+            .clip(RoundedCornerShape(ThumbnailCornerRadius))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                shape = RoundedCornerShape(ThumbnailCornerRadius)
+            )
     ) {
-        // Same stroke widths the default wavy indicator uses, just with flat
-        // (square) ends instead of the default rounded caps, per request.
-        val defaultStroke = WavyProgressIndicatorDefaults.circularIndicatorStroke
-        val defaultTrackStroke = WavyProgressIndicatorDefaults.circularTrackStroke
-        val squareStroke = remember(defaultStroke) {
-            Stroke(width = defaultStroke.width, cap = StrokeCap.Butt)
-        }
-        val squareTrackStroke = remember(defaultTrackStroke) {
-            Stroke(width = defaultTrackStroke.width, cap = StrokeCap.Butt)
-        }
-
-        if (isLoading) {
-            CircularWavyProgressIndicator(
-                modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f),
-                stroke = squareStroke,
-                trackStroke = squareTrackStroke
+        val thumbnailUrl = mediaMetadata?.thumbnailUrl
+        if (thumbnailUrl != null) {
+            AsyncImage(
+                model = thumbnailUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
             )
         } else {
-            CircularWavyProgressIndicator(
-                progress = { if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f },
-                modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f),
-                stroke = squareStroke,
-                trackStroke = squareTrackStroke
+            Image(
+                painter = painterResource(R.drawable.opentune),
+                contentDescription = null,
+                modifier = Modifier.size(22.dp)
             )
-        }
-
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .border(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                    shape = CircleShape
-                )
-        ) {
-            val thumbnailUrl = mediaMetadata?.thumbnailUrl
-            if (thumbnailUrl != null) {
-                AsyncImage(
-                    model = thumbnailUrl,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                Image(
-                    painter = painterResource(R.drawable.opentune),
-                    contentDescription = null,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
         }
     }
 }
@@ -471,7 +436,11 @@ fun NewMiniPlayerContent(
     val isLiked = currentSong?.song?.liked == true
 
     val isLoading = playbackState == Player.STATE_BUFFERING
+    val progressFraction = remember(position, duration) {
+        if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f
+    }
 
+    Box(modifier = Modifier.fillMaxSize()) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -479,10 +448,7 @@ fun NewMiniPlayerContent(
             .padding(horizontal = 8.dp, vertical = 8.dp),
     ) {
         MiniPlayerArtwork(
-            mediaMetadata = mediaMetadata,
-            position = position,
-            duration = duration,
-            isLoading = isLoading
+            mediaMetadata = mediaMetadata
         )
 
         Spacer(modifier = Modifier.width(12.dp))
@@ -574,6 +540,25 @@ fun NewMiniPlayerContent(
         )
 
         Spacer(modifier = Modifier.width(4.dp))
+    }
+
+        // Flat, square-cornered playback progress bar along the bottom edge
+        // of the mini player - replaces the ring that used to wrap the
+        // thumbnail (and used to sit on top of the play button's area).
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(3.dp)
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(progressFraction)
+                    .background(MaterialTheme.colorScheme.primary)
+            )
+        }
     }
 }
 
