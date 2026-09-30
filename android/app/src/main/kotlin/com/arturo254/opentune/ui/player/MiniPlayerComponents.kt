@@ -57,6 +57,7 @@ import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.WavyProgressIndicatorDefaults
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -70,6 +71,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -291,18 +294,33 @@ private fun MiniPlayerArtwork(
         contentAlignment = Alignment.Center,
         modifier = modifier.size(44.dp)
     ) {
+        // Same stroke widths the default wavy indicator uses, just with flat
+        // (square) ends instead of the default rounded caps, per request.
+        val defaultStroke = WavyProgressIndicatorDefaults.circularIndicatorStroke
+        val defaultTrackStroke = WavyProgressIndicatorDefaults.circularTrackStroke
+        val squareStroke = remember(defaultStroke) {
+            Stroke(width = defaultStroke.width, cap = StrokeCap.Butt)
+        }
+        val squareTrackStroke = remember(defaultTrackStroke) {
+            Stroke(width = defaultTrackStroke.width, cap = StrokeCap.Butt)
+        }
+
         if (isLoading) {
             CircularWavyProgressIndicator(
                 modifier = Modifier.fillMaxSize(),
                 color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)
+                trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f),
+                stroke = squareStroke,
+                trackStroke = squareTrackStroke
             )
         } else {
             CircularWavyProgressIndicator(
                 progress = { if (duration > 0) (position.toFloat() / duration).coerceIn(0f, 1f) else 0f },
                 modifier = Modifier.fillMaxSize(),
                 color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)
+                trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.18f),
+                stroke = squareStroke,
+                trackStroke = squareTrackStroke
             )
         }
 
