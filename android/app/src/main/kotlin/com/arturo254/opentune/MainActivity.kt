@@ -111,6 +111,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -1419,6 +1420,7 @@ class MainActivity : ComponentActivity() {
                                                                 AsyncImage(
                                                                     model = topBarAvatarUrl,
                                                                     contentDescription = stringResource(R.string.account),
+                                                                    contentScale = ContentScale.Crop,
                                                                     modifier = Modifier
                                                                         .size(35.dp) // +18% (was 30.dp)
                                                                         .clip(CircleShape)

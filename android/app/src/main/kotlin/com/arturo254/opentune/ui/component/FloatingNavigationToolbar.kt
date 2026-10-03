@@ -69,7 +69,7 @@ fun FloatingNavigationToolbar(
         modifier = modifier
             .fillMaxWidth()
             .background(containerColor)
-            .padding(vertical = 8.dp),
+            .padding(vertical = 4.dp), // reduced from 8.dp so the shorter bar height still fits icon + label
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -110,7 +110,7 @@ private fun BottomNavItem(
                 role = Role.Tab,
                 onClick = onClick,
             )
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+            .padding(horizontal = 12.dp, vertical = 2.dp), // reduced from 4.dp to match the shorter bar
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(
