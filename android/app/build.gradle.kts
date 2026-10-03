@@ -90,7 +90,10 @@ android {
     ndkVersion = "27.1.12297006"
 
     defaultConfig {
-        applicationId = "com.lumamusic.android"
+        // Unique id so Luma Music installs as its own app instead of being
+        // detected as an update to OpenTune (the original repo this was
+        // forked from shipped with this same applicationId already set).
+        applicationId = "com.lumamusic.app"
         minSdk = 26
         targetSdk = 36
         versionCode = 402
