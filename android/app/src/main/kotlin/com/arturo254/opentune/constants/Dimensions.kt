@@ -27,7 +27,7 @@ val FloatingToolbarBottomPadding = 12.dp
 val NavigationBarHeight = FloatingToolbarHeight
 val SlimNavBarHeight = SlimFloatingToolbarHeight
 val MiniPlayerHeight = 64.dp
-val MiniPlayerBottomSpacing = 8.dp // Space between MiniPlayer and NavigationBar
+val MiniPlayerBottomSpacing = 6.dp // Space between MiniPlayer and NavigationBar (was 8.dp, -25%)
 val QueuePeekHeight = 64.dp
 val AppBarHeight = 64.dp
 

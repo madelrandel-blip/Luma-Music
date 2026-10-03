@@ -1420,14 +1420,14 @@ class MainActivity : ComponentActivity() {
                                                                     model = topBarAvatarUrl,
                                                                     contentDescription = stringResource(R.string.account),
                                                                     modifier = Modifier
-                                                                        .size(30.dp)
+                                                                        .size(35.dp) // +18% (was 30.dp)
                                                                         .clip(CircleShape)
                                                                 )
                                                             } else {
                                                                 Icon(
                                                                     painter = painterResource(R.drawable.account),
                                                                     contentDescription = stringResource(R.string.account),
-                                                                    modifier = Modifier.size(24.dp)
+                                                                    modifier = Modifier.size(28.dp) // +18% (was 24.dp)
                                                                 )
                                                             }
                                                         }
@@ -1441,7 +1441,7 @@ class MainActivity : ComponentActivity() {
                                                         Icon(
                                                             painter = painterResource(R.drawable.notifications),
                                                             contentDescription = stringResource(R.string.new_release_albums),
-                                                            modifier = Modifier.size(22.dp)
+                                                            modifier = Modifier.size(26.dp) // +18% (was 22.dp)
                                                         )
                                                     }
                                                 },
