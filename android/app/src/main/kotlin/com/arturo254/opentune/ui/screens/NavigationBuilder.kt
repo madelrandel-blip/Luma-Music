@@ -98,6 +98,7 @@ import com.arturo254.opentune.ui.screens.musicrecognition.MusicRecognitionScreen
 import com.arturo254.opentune.ui.screens.playlist.SpotifyPlaylistScreen
 import com.arturo254.opentune.ui.screens.settings.AODSettings
 import com.arturo254.opentune.ui.screens.settings.AndroidAutoSettings
+import com.arturo254.opentune.ui.screens.settings.AccountSettingsScreen
 import com.arturo254.opentune.ui.screens.settings.SettingsAnimations
 
 import com.arturo254.opentune.ui.utils.ShowMediaInfo
@@ -363,6 +364,9 @@ fun NavGraphBuilder.navigationBuilder(
     }
     settingsComposable("settings") {
         SettingsScreen(navController, scrollBehavior, latestVersionName)
+    }
+    settingsComposable("settings/account") {
+        AccountSettingsScreen(navController, latestVersionName)
     }
     settingsComposable("settings/appearance") {
         AppearanceSettings(navController, scrollBehavior)

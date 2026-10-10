@@ -882,4 +882,13 @@ Luma Music will only extract your token, and everything else is stored locally.<
     <string name="settings_private_search">Private search</string>
     <string name="settings_private_session">Private session</string>
     <string name="settings_logout_confirm">You will be signed out of your account on this device.</string>
+    <string name="view_profile">View profile</string>
+    <string name="account_details">Account details</string>
+    <string name="account_email">Email</string>
+    <string name="account_channel_handle">Channel handle</string>
+    <string name="drawer_add_account">Add account</string>
+    <string name="drawer_add_account_desc">Sign in with YouTube Music or create a guest profile</string>
+    <string name="drawer_listening_stats">Listening stats</string>
+    <string name="drawer_recents">Recents</string>
+    <string name="drawer_settings_privacy">Settings and privacy</string>
 </resources>

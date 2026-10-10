@@ -712,4 +712,13 @@
     <string name="settings_private_search">Búsqueda privada</string>
     <string name="settings_private_session">Sesión privada</string>
     <string name="settings_logout_confirm">Se cerrará la sesión de tu cuenta en este dispositivo.</string>
+    <string name="view_profile">Ver perfil</string>
+    <string name="account_details">Datos de la cuenta</string>
+    <string name="account_email">Correo electrónico</string>
+    <string name="account_channel_handle">Identificador del canal</string>
+    <string name="drawer_add_account">Agregar cuenta</string>
+    <string name="drawer_add_account_desc">Inicia sesión con YouTube Music o crea un perfil de invitado</string>
+    <string name="drawer_listening_stats">Estadísticas de reproducción</string>
+    <string name="drawer_recents">Recientes</string>
+    <string name="drawer_settings_privacy">Configuración y privacidad</string>
 </resources>

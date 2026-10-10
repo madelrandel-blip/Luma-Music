@@ -55,7 +55,6 @@ import com.arturo254.opentune.constants.GuestModeEnabledKey
 import com.arturo254.opentune.constants.GuestNameKey
 import com.arturo254.opentune.constants.InnerTubeCookieKey
 import com.arturo254.opentune.innertube.utils.parseCookieString
-import com.arturo254.opentune.ui.component.AccountSettingsDialog
 import com.arturo254.opentune.ui.component.IconButton
 import com.arturo254.opentune.ui.component.TopSearch
 import com.arturo254.opentune.ui.utils.backToMain
@@ -77,7 +76,6 @@ fun SettingsScreen(
     var query by remember { mutableStateOf(TextFieldValue()) }
     val focusRequester = remember { FocusRequester() }
 
-    var showAccountDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
 
     // Play the staggered entrance only on the first visit, not when coming back from a sub-screen.
@@ -150,7 +148,7 @@ fun SettingsScreen(
         hasUpdate = hasUpdate,
         isLoggedIn = isLoggedIn,
         context = context,
-        onOpenAccount = { showAccountDialog = true },
+        onOpenAccount = { navController.navigate("settings/account") },
         resetSearch = resetSearch,
     )
     val internalItems = buildInternalItems(navController, resetSearch)
@@ -304,14 +302,6 @@ fun SettingsScreen(
                 }
             }
         }
-    }
-
-    if (showAccountDialog) {
-        AccountSettingsDialog(
-            navController = navController,
-            onDismiss = { showAccountDialog = false },
-            latestVersionName = latestVersionName,
-        )
     }
 
     if (showLogoutDialog) {

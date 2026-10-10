@@ -223,7 +223,7 @@ import com.arturo254.opentune.playback.queues.LocalAlbumRadio
 import com.arturo254.opentune.playback.queues.ListQueue
 import com.arturo254.opentune.playback.queues.YouTubeAlbumRadio
 import com.arturo254.opentune.playback.queues.YouTubeQueue
-import com.arturo254.opentune.ui.component.AccountSettingsDialog
+import com.arturo254.opentune.ui.component.ProfileDrawer
 import com.arturo254.opentune.ui.component.BottomSheetMenu
 import com.arturo254.opentune.ui.component.BottomSheetPage
 import com.arturo254.opentune.ui.component.COLLAPSED_ANCHOR
@@ -1996,13 +1996,11 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.align(Alignment.BottomCenter)
                         )
 
-                        if (showAccountDialog) {
-                            AccountSettingsDialog(
-                                navController = navController,
-                                onDismiss = { showAccountDialog = false },
-                                latestVersionName = latestVersionName
-                            )
-                        }
+                        ProfileDrawer(
+                            visible = showAccountDialog,
+                            onDismiss = { showAccountDialog = false },
+                            navController = navController,
+                        )
 
                         sharedSong?.let { song ->
                             playerConnection?.let {

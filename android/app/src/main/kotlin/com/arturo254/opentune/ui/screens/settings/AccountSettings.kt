@@ -73,6 +73,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import com.arturo254.opentune.LocalPlayerAwareWindowInsets
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.ui.unit.Dp
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -124,14 +137,59 @@ import com.arturo254.opentune.utils.dataStore
 import com.arturo254.opentune.utils.rememberPreference
 import com.arturo254.opentune.viewmodels.HomeViewModel
 
+/**
+ * Full-screen "Account" page (route `settings/account`). Styled like the
+ * other settings sub-screens: centred top bar, a profile header with a
+ * gradient, then flat sections with bold headers.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AccountSettingsScreen(
+    navController: NavController,
+    latestVersionName: String,
+) {
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        text = stringResource(R.string.account),
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = navController::navigateUp) {
+                        Icon(
+                            painter = painterResource(R.drawable.arrow_back),
+                            contentDescription = null,
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface,
+                ),
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+    ) { innerPadding ->
+        AccountSettings(
+            navController = navController,
+            latestVersionName = latestVersionName,
+            topPadding = innerPadding.calculateTopPadding(),
+        )
+    }
+}
+
 @Composable
 fun AccountSettings(
     navController: NavController,
-    onClose: () -> Unit,
-    latestVersionName: String
+    latestVersionName: String,
+    topPadding: Dp = 0.dp,
 ) {
     val context = LocalContext.current
-    val uriHandler = LocalUriHandler.current
 
     val (accountNamePref, onAccountNameChange) = rememberPreference(AccountNameKey, "")
     val (accountEmail, onAccountEmailChange) = rememberPreference(AccountEmailKey, "")
@@ -163,62 +221,69 @@ fun AccountSettings(
     var showLoginChoiceDialog by remember { mutableStateOf(false) }
     var showGuestProfileDialog by remember { mutableStateOf(false) }
 
-    val hasUpdate = !Updater.isSameVersion(latestVersionName, BuildConfig.VERSION_NAME)
+    val onLogout: () -> Unit = {
+        if (isLoggedIn) {
+            onInnerTubeCookieChange("")
+            forgetAccount(context)
+        } else if (isGuest) {
+            onGuestModeEnabledChange(false)
+            onGuestNameChange("")
+            onGuestAvatarUriChange("")
+        }
+    }
 
     Column(
         modifier = Modifier
+            .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface)
             .verticalScroll(rememberScrollState())
+            .windowInsetsPadding(
+                LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom)
+            )
     ) {
-        // Header Section
-        AccountSettingsHeader(onClose = onClose)
+        AccountProfileHeader(
+            topPadding = topPadding,
+            isLoggedIn = isLoggedIn,
+            isGuest = isGuest,
+            name = when {
+                isLoggedIn -> accountName
+                isGuest -> guestName.ifBlank { stringResource(R.string.guest_default_name) }
+                else -> stringResource(R.string.not_logged_in)
+            },
+            subtitle = when {
+                isLoggedIn -> accountEmail.ifBlank { accountChannelHandle }
+                isGuest -> stringResource(R.string.continue_as_guest)
+                else -> ""
+            },
+            avatarUrl = when {
+                isLoggedIn -> accountImageUrl
+                isGuest -> guestAvatarUri.ifBlank { null }
+                else -> null
+            },
+            onPrimaryAction = {
+                when {
+                    isLoggedIn -> navController.navigate("account")
+                    isGuest -> showGuestProfileDialog = true
+                    else -> showLoginChoiceDialog = true
+                }
+            },
+            onSettingsClick = {
+                if (!navController.popBackStack("settings", inclusive = false)) {
+                    navController.navigate("settings")
+                }
+            },
+        )
 
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.padding(top = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Account Card
-            AccountCard(
-                isLoggedIn = isLoggedIn,
-                accountName = accountName,
-                accountEmail = accountEmail,
-                accountImageUrl = accountImageUrl,
-                isGuest = isGuest,
-                guestName = guestName.ifBlank { stringResource(R.string.guest_default_name) },
-                guestAvatarUri = guestAvatarUri.ifBlank { null },
-                onAccountClick = {
-                    when {
-                        isLoggedIn -> {
-                            onClose()
-                            navController.navigate("account")
-                        }
-                        isGuest -> {
-                            showGuestProfileDialog = true
-                        }
-                        else -> {
-                            showLoginChoiceDialog = true
-                        }
-                    }
-                },
-                onLogout = {
-                    if (isLoggedIn) {
-                        onInnerTubeCookieChange("")
-                        forgetAccount(context)
-                    } else if (isGuest) {
-                        onGuestModeEnabledChange(false)
-                        onGuestNameChange("")
-                        onGuestAvatarUriChange("")
-                    }
-                }
-            )
-
             // Choose between a real YouTube Premium login or a local guest profile
             if (showLoginChoiceDialog) {
                 LoginChoiceDialog(
                     onDismiss = { showLoginChoiceDialog = false },
                     onChooseYoutube = {
                         showLoginChoiceDialog = false
-                        onClose()
                         navController.navigate(buildLoginRoute())
                     },
                     onChooseGuest = {
@@ -263,15 +328,64 @@ fun AccountSettings(
                 )
             }
 
+            // Account details
+            SettingsSection(title = stringResource(R.string.account_details)) {
+                SettingsClickableItem(
+                    title = stringResource(R.string.username),
+                    subtitle = when {
+                        isLoggedIn -> accountName.ifBlank { accountNamePref }
+                        isGuest -> guestName.ifBlank { stringResource(R.string.guest_default_name) }
+                        else -> stringResource(R.string.not_logged_in)
+                    },
+                    onClick = {
+                        when {
+                            isLoggedIn -> navController.navigate("account")
+                            isGuest -> showGuestProfileDialog = true
+                            else -> showLoginChoiceDialog = true
+                        }
+                    }
+                )
+                if (isLoggedIn && accountEmail.isNotBlank()) {
+                    SettingsClickableItem(
+                        title = stringResource(R.string.account_email),
+                        subtitle = accountEmail,
+                        showChevron = false,
+                        onClick = {}
+                    )
+                }
+                if (isLoggedIn && accountChannelHandle.isNotBlank()) {
+                    SettingsClickableItem(
+                        title = stringResource(R.string.account_channel_handle),
+                        subtitle = accountChannelHandle,
+                        showChevron = false,
+                        onClick = {}
+                    )
+                }
+                SettingsClickableItem(
+                    title = when {
+                        isLoggedIn -> stringResource(R.string.action_logout)
+                        isGuest -> stringResource(R.string.exit_guest_mode)
+                        else -> stringResource(R.string.action_login)
+                    },
+                    subtitle = if (!isLoggedIn && !isGuest) {
+                        stringResource(R.string.continue_as_guest)
+                    } else {
+                        null
+                    },
+                    onClick = {
+                        if (isLoggedIn || isGuest) onLogout() else showLoginChoiceDialog = true
+                    }
+                )
+            }
+
             // Account Options Section
             AnimatedVisibility(
                 visible = isLoggedIn,
                 enter = fadeIn() + expandVertically(),
                 exit = fadeOut() + shrinkVertically()
             ) {
-                SettingsSection(title = stringResource(R.string.account)) {
+                SettingsSection(title = stringResource(R.string.content)) {
                     SettingsToggleItem(
-                        icon = painterResource(R.drawable.add_circle),
                         title = stringResource(R.string.more_content),
                         subtitle = stringResource(R.string.use_login_for_browse_desc),
                         checked = useLoginForBrowse,
@@ -280,14 +394,7 @@ fun AccountSettings(
                             onUseLoginForBrowseChange(it)
                         }
                     )
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(start = 56.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                    )
-
                     SettingsToggleItem(
-                        icon = painterResource(R.drawable.cached),
                         title = stringResource(R.string.yt_sync),
                         checked = ytmSync,
                         onCheckedChange = onYtmSyncChange
@@ -298,45 +405,23 @@ fun AccountSettings(
             // Sync & Integration Section
             SettingsSection(title = stringResource(R.string.integration)) {
                 SettingsClickableItem(
-                    icon = painterResource(R.drawable.playlist_add),
                     title = stringResource(R.string.select_playlist_to_sync),
                     onClick = { showPlaylistDialog = true }
                 )
-
-                HorizontalDivider(
-                    modifier = Modifier.padding(start = 56.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                )
-
                 SettingsClickableItem(
-                    icon = painterResource(R.drawable.integration),
                     title = stringResource(R.string.integration),
                     subtitle = "Discord, Last.fm, ListenBrainz",
-                    onClick = {
-                        onClose()
-                        navController.navigate("settings/integration")
-                    }
+                    onClick = { navController.navigate("settings/integration") }
                 )
-
-                HorizontalDivider(
-                    modifier = Modifier.padding(start = 56.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                )
-
                 SettingsClickableItem(
-                    icon = painterResource(R.drawable.fire),
                     title = stringResource(R.string.music_together),
-                    onClick = {
-                        onClose()
-                        navController.navigate("settings/music_together")
-                    }
+                    onClick = { navController.navigate("settings/music_together") }
                 )
             }
 
             // Advanced Section
             SettingsSection(title = stringResource(R.string.misc)) {
                 SettingsClickableItem(
-                    icon = painterResource(R.drawable.token),
                     title = when {
                         !isLoggedIn -> stringResource(R.string.advanced_login)
                         showToken -> stringResource(R.string.token_shown)
@@ -350,35 +435,10 @@ fun AccountSettings(
                 )
             }
 
-            // Settings & Updates Section
-            SettingsSection {
-                SettingsClickableItem(
-                    icon = painterResource(R.drawable.settings),
-                    title = stringResource(R.string.settings),
-                    showBadge = hasUpdate,
-                    onClick = {
-                        onClose()
-                        navController.navigate("settings")
-                    }
-                )
-
-                if (hasUpdate) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(start = 56.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                    )
-
-                    UpdateAvailableItem(
-                        latestVersion = latestVersionName,
-                        onClick = { uriHandler.openUri(Updater.getLatestDownloadUrl()) }
-                    )
-                }
-            }
-
             // App Version Footer
             AppVersionFooter()
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(24.dp))
         }
     }
 
@@ -390,142 +450,51 @@ fun AccountSettings(
     }
 }
 
+/**
+ * Profile header: theme-primary to background gradient, large round avatar,
+ * bold name, then an outlined pill (edit / log in) and a gear to Settings.
+ */
 @Composable
-private fun AccountSettingsHeader(onClose: () -> Unit) {
-    val context = LocalContext.current
-    // Adaptive icons (mipmap/ic_launcher) are a layered XML, not a plain
-    // VectorDrawable or raster asset, so painterResource() can't load them
-    // directly - decode it through the platform drawable APIs instead.
-    val appIconBitmap = remember {
-        ContextCompat.getDrawable(context, R.mipmap.ic_launcher)?.toBitmap()?.asImageBitmap()
-    }
-    Box(
+private fun AccountProfileHeader(
+    topPadding: Dp,
+    isLoggedIn: Boolean,
+    isGuest: Boolean,
+    name: String,
+    subtitle: String,
+    avatarUrl: String?,
+    onPrimaryAction: () -> Unit,
+    onSettingsClick: () -> Unit,
+) {
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                        MaterialTheme.colorScheme.surface
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+                        MaterialTheme.colorScheme.surface,
                     )
                 )
             )
-            .padding(top = 8.dp, bottom = 16.dp)
+            .padding(top = topPadding + 8.dp, bottom = 16.dp)
+            .padding(horizontal = 16.dp),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // App Icon (Luma Music logo)
-                if (appIconBitmap != null) {
-                    Image(
-                        bitmap = appIconBitmap,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                    )
-                } else {
-                    Icon(
-                        painter = painterResource(R.drawable.opentune),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(44.dp)
-                    )
-                }
-
-                Text(
-                    text = stringResource(id = R.string.app_name),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-
-            IconButton(
-                onClick = onClose,
-                colors = IconButtonDefaults.iconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                )
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.close),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun AccountCard(
-    isLoggedIn: Boolean,
-    accountName: String,
-    accountEmail: String,
-    accountImageUrl: String?,
-    isGuest: Boolean = false,
-    guestName: String = "",
-    guestAvatarUri: String? = null,
-    onAccountClick: () -> Unit,
-    onLogout: () -> Unit
-) {
-    // "Signed in" in the visual sense: either a real account or an active
-    // guest profile - both get the filled card style and a way to exit.
-    val hasActiveProfile = isLoggedIn || isGuest
-
-    val cardColor by animateColorAsState(
-        targetValue = if (hasActiveProfile)
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-        else
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        animationSpec = tween(300),
-        label = "cardColor"
-    )
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
-            .clickable(onClick = onAccountClick),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = cardColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Avatar
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .size(60.dp)
+                    .size(112.dp)
                     .clip(CircleShape)
-                    .background(
-                        if (hasActiveProfile)
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                        else
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f)
-                    ),
-                contentAlignment = Alignment.Center
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                contentAlignment = Alignment.Center,
             ) {
-                val avatarUrl = if (isLoggedIn) accountImageUrl else if (isGuest) guestAvatarUri else null
                 if (avatarUrl != null) {
                     AsyncImage(
                         model = avatarUrl,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
-                            .size(60.dp)
+                            .size(112.dp)
                             .clip(CircleShape)
                     )
                 } else {
@@ -538,88 +507,65 @@ private fun AccountCard(
                             }
                         ),
                         contentDescription = null,
-                        modifier = Modifier.size(28.dp),
-                        tint = if (hasActiveProfile)
-                            MaterialTheme.colorScheme.primary
-                        else
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
 
-            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.width(20.dp))
 
-            // Account Info
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = when {
-                        isLoggedIn -> accountName
-                        isGuest -> guestName
-                        else -> stringResource(R.string.login)
-                    },
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    text = name,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
-
-                if (isLoggedIn && accountEmail.isNotEmpty()) {
-                    Spacer(Modifier.height(2.dp))
+                if (subtitle.isNotBlank()) {
+                    Spacer(Modifier.height(4.dp))
                     Text(
-                        text = accountEmail,
-                        style = MaterialTheme.typography.bodySmall,
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                } else if (isGuest) {
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = stringResource(R.string.continue_as_guest),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                } else if (!isLoggedIn) {
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = stringResource(R.string.not_logged_in),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
+        }
 
-            // Logout Button or Arrow
-            if (isLoggedIn) {
-                FilledTonalButton(
-                    onClick = onLogout,
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.action_logout),
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                }
-            } else if (isGuest) {
-                FilledTonalButton(
-                    onClick = onLogout,
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.exit_guest_mode),
-                        style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            } else {
+        Spacer(Modifier.height(20.dp))
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(
+                onClick = onPrimaryAction,
+                shape = CircleShape,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                ),
+            ) {
+                Text(
+                    text = when {
+                        isLoggedIn -> stringResource(R.string.view_profile)
+                        isGuest -> stringResource(R.string.edit)
+                        else -> stringResource(R.string.action_login)
+                    },
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            IconButton(onClick = onSettingsClick) {
                 Icon(
-                    painter = painterResource(R.drawable.arrow_forward),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    painter = painterResource(R.drawable.settings),
+                    contentDescription = stringResource(R.string.settings),
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(28.dp),
                 )
             }
         }
@@ -836,87 +782,42 @@ private fun SettingsSection(
         if (title != null) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
         }
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            Column {
-                content()
-            }
-        }
+        content()
     }
 }
 
 @Composable
 private fun SettingsClickableItem(
-    icon: Painter,
     title: String,
     subtitle: String? = null,
-    showBadge: Boolean = false,
+    showChevron: Boolean = true,
     onClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Icon Container
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-            contentAlignment = Alignment.Center
-        ) {
-            if (showBadge) {
-                BadgedBox(
-                    badge = {
-                        Badge(containerColor = MaterialTheme.colorScheme.error)
-                    }
-                ) {
-                    Icon(
-                        painter = icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(22.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-            } else {
-                Icon(
-                    painter = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(22.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-        }
-
-        Spacer(Modifier.width(14.dp))
-
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyLarge,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            if (subtitle != null) {
+            if (!subtitle.isNullOrBlank()) {
+                Spacer(Modifier.height(2.dp))
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -924,18 +825,20 @@ private fun SettingsClickableItem(
             }
         }
 
-        Icon(
-            painter = painterResource(R.drawable.arrow_forward),
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-        )
+        if (showChevron) {
+            Spacer(Modifier.width(12.dp))
+            Icon(
+                painter = painterResource(R.drawable.navigate_next),
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
 @Composable
 private fun SettingsToggleItem(
-    icon: Painter,
     title: String,
     subtitle: String? = null,
     checked: Boolean,
@@ -945,44 +848,29 @@ private fun SettingsToggleItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onCheckedChange(!checked) }
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Icon Container
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painter = icon,
-                contentDescription = null,
-                modifier = Modifier.size(22.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-        }
-
-        Spacer(Modifier.width(14.dp))
-
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyLarge,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface
             )
             if (subtitle != null) {
+                Spacer(Modifier.height(2.dp))
                 Text(
                     text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
+                    maxLines = 3,
                     overflow = TextOverflow.Ellipsis
                 )
             }
         }
+
+        Spacer(Modifier.width(12.dp))
 
         Switch(
             checked = checked,
@@ -994,77 +882,6 @@ private fun SettingsToggleItem(
                 uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
             )
         )
-    }
-}
-
-@Composable
-private fun UpdateAvailableItem(
-    latestVersion: String,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Icon Container with gradient
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f),
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-                        )
-                    )
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            BadgedBox(
-                badge = {
-                    Badge(containerColor = MaterialTheme.colorScheme.error)
-                }
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.update),
-                    contentDescription = null,
-                    modifier = Modifier.size(22.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-        }
-
-        Spacer(Modifier.width(14.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = stringResource(R.string.new_version_available),
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.tertiary
-            )
-            Text(
-                text = latestVersion,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        Surface(
-            shape = RoundedCornerShape(8.dp),
-            color = MaterialTheme.colorScheme.primary
-        ) {
-            Text(
-                text = stringResource(R.string.update_text),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-            )
-        }
     }
 }
 
