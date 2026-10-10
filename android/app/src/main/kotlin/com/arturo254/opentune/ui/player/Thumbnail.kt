@@ -274,7 +274,7 @@ fun Thumbnail(
     val openTuneCanvasEnabled by rememberPreference(OpenTuneCanvasKey, false)
     val playerDesignStyle by rememberEnumPreference(
         key = PlayerDesignStyleKey,
-        defaultValue = PlayerDesignStyle.V4,
+        defaultValue = PlayerDesignStyle.SPOTIFY,
     )
     val (maxCanvasCacheSize, _) = rememberPreference(
         key = MaxCanvasCacheSizeKey,
