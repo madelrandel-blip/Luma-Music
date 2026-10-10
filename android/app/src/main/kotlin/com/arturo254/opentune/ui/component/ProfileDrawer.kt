@@ -50,6 +50,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,6 +62,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -355,5 +357,62 @@ private fun DrawerRow(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+    }
+}
+
+/** Actions owned by MainActivity that screens drawing their own top bar need. */
+class MainUiActions(
+    val openProfileDrawer: () -> Unit,
+    val openSearch: () -> Unit,
+)
+
+val LocalMainUiActions = staticCompositionLocalOf { MainUiActions(openProfileDrawer = {}, openSearch = {}) }
+
+/** Round profile picture that opens the [ProfileDrawer]. */
+@Composable
+fun ProfileAvatarButton(
+    modifier: Modifier = Modifier,
+    size: Dp = 34.dp,
+) {
+    val actions = LocalMainUiActions.current
+    val (innerTubeCookie, _) = rememberPreference(InnerTubeCookieKey, "")
+    val (guestModeEnabled, _) = rememberPreference(GuestModeEnabledKey, false)
+    val (guestAvatarUri, _) = rememberPreference(GuestAvatarUriKey, "")
+    val isLoggedIn = remember(innerTubeCookie) {
+        "SAPISID" in parseCookieString(innerTubeCookie)
+    }
+    val viewModel: HomeViewModel = hiltViewModel()
+    val accountImageUrl by viewModel.accountImageUrl.collectAsState()
+    val avatarUrl = when {
+        isLoggedIn -> accountImageUrl
+        guestModeEnabled -> guestAvatarUri.ifBlank { null }
+        else -> null
+    }
+
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .clickable(onClick = actions.openProfileDrawer),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (avatarUrl != null) {
+            AsyncImage(
+                model = avatarUrl,
+                contentDescription = stringResource(R.string.account),
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(size)
+                    .clip(CircleShape),
+            )
+        } else {
+            Icon(
+                painter = painterResource(R.drawable.account),
+                contentDescription = stringResource(R.string.account),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(size * 0.6f),
+            )
+        }
     }
 }

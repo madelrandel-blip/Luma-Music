@@ -782,7 +782,7 @@ fun HomeLoadingShimmer(modifier: Modifier = Modifier) {
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun YouTubeGridItemWrapper(
+internal fun YouTubeGridItemWrapper(
     item: YTItem,
     mediaMetadata: MediaMetadata?,
     isPlaying: Boolean,

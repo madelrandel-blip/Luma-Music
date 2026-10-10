@@ -125,6 +125,15 @@ fun buildSettingsRows(
         )
         add(
             SettingsItem(
+                icon = painterResource(R.drawable.artist),
+                title = stringResource(R.string.favorite_artists),
+                subtitle = stringResource(R.string.favorite_artists_desc),
+                keywords = listOf("artists", "favorite", "home", "recommendations", "artistas", "inicio"),
+                onClick = go("onboarding/artists"),
+            ),
+        )
+        add(
+            SettingsItem(
                 icon = painterResource(R.drawable.palette),
                 title = stringResource(R.string.appearance),
                 subtitle = subtitleOf(

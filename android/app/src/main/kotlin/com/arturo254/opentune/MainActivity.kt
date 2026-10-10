@@ -225,6 +225,8 @@ import com.arturo254.opentune.playback.queues.ListQueue
 import com.arturo254.opentune.playback.queues.YouTubeAlbumRadio
 import com.arturo254.opentune.playback.queues.YouTubeQueue
 import com.arturo254.opentune.ui.component.ProfileDrawer
+import com.arturo254.opentune.ui.component.LocalMainUiActions
+import com.arturo254.opentune.ui.component.MainUiActions
 import com.arturo254.opentune.ui.component.BottomSheetMenu
 import com.arturo254.opentune.ui.component.BottomSheetPage
 import com.arturo254.opentune.ui.component.COLLAPSED_ANCHOR
@@ -1193,7 +1195,8 @@ class MainActivity : ComponentActivity() {
                     // it had captured active = true. Deriving it directly on every
                     // recomposition keeps it always in sync with both inputs.
                     val shouldShowTopBar =
-                        !active && navBackStackEntry?.destination?.route in topLevelScreens && navBackStackEntry?.destination?.route != "settings"
+                        !active && navBackStackEntry?.destination?.route in topLevelScreens && navBackStackEntry?.destination?.route != "settings" &&
+                            navBackStackEntry?.destination?.route != Screens.Library.route
 
                     val coroutineScope = rememberCoroutineScope()
                     var sharedSong: SongItem? by remember {
@@ -1256,6 +1259,13 @@ class MainActivity : ComponentActivity() {
 
                     CompositionLocalProvider(
                         LocalDatabase provides database,
+                        LocalMainUiActions provides MainUiActions(
+                            openProfileDrawer = { showAccountDialog = true },
+                            openSearch = {
+                                openedFromSearchTab = true
+                                onActiveChange(true)
+                            },
+                        ),
                         LocalContentColor provides if (pureBlack) Color.White else contentColorFor(MaterialTheme.colorScheme.surface),
                         LocalHapticFeedback provides customHaptic,
                         LocalPlayerConnection provides playerConnection,

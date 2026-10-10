@@ -154,7 +154,10 @@ fun NavGraphBuilder.navigationBuilder(
     latestVersionName: String,
 ) {
     composable(Screens.Home.route) {
-        HomeScreen(navController)
+        ForYouHomeScreen(navController)
+    }
+    composable(FavoriteArtistsRoute) {
+        FavoriteArtistsPickerScreen(navController)
     }
     composable(
         Screens.Library.route,
