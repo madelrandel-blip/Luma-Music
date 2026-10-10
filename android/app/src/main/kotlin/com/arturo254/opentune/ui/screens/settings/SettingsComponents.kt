@@ -6,6 +6,7 @@
 
 package com.arturo254.opentune.ui.screens.settings
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -52,6 +54,7 @@ import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.arturo254.opentune.R
@@ -297,3 +300,191 @@ fun SettingsSearchEmpty(
     }
 }
 
+
+@Composable
+fun SettingsQuickTogglesRow(
+    toggles: List<SettingsQuickToggle>,
+    modifier: Modifier = Modifier,
+) {
+    if (toggles.isEmpty()) return
+
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(SettingsDimensions.QuickToggleSpacing),
+    ) {
+        toggles.forEach { toggle ->
+            SettingsQuickToggleTile(
+                toggle = toggle,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+fun SettingsQuickToggleTile(
+    toggle: SettingsQuickToggle,
+    modifier: Modifier = Modifier,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) SettingsAnimations.TilePressScale else 1f,
+        animationSpec = SettingsAnimations.pressSpring(),
+        label = "toggleScale",
+    )
+    val iconTint by animateColorAsState(
+        targetValue = if (toggle.isActive) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.onSurface
+        },
+        label = "toggleTint",
+    )
+    val stateColor by animateColorAsState(
+        targetValue = if (toggle.isActive) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
+        label = "toggleStateColor",
+    )
+
+    Surface(
+        modifier = modifier
+            .scale(scale)
+            .height(SettingsDimensions.QuickToggleHeight),
+        shape = RoundedCornerShape(SettingsDimensions.QuickToggleCornerRadius),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        onClick = toggle.onToggle,
+        interactionSource = interactionSource,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 6.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Icon(
+                painter = toggle.icon,
+                contentDescription = null,
+                tint = iconTint,
+                modifier = Modifier.size(SettingsDimensions.QuickToggleIconSize),
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = toggle.label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = toggle.state,
+                style = MaterialTheme.typography.labelSmall,
+                color = stateColor,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+fun SettingsCategoryRow(
+    item: SettingsItem,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = item.onClick)
+            .padding(
+                horizontal = SettingsDimensions.ScreenHorizontalPadding,
+                vertical = SettingsDimensions.CategoryRowVerticalPadding,
+            ),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (item.showUpdateIndicator) {
+            BadgedBox(
+                badge = {
+                    Badge(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(8.dp),
+                    )
+                },
+            ) {
+                CategoryIcon(item)
+            }
+        } else {
+            CategoryIcon(item)
+        }
+
+        Spacer(modifier = Modifier.width(SettingsDimensions.CategoryIconTextGap))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = item.title,
+                fontSize = SettingsDimensions.CategoryTitleSize,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            item.subtitle?.let { subtitle ->
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    fontSize = SettingsDimensions.CategorySubtitleSize,
+                    color = if (item.showUpdateIndicator) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CategoryIcon(item: SettingsItem) {
+    Icon(
+        painter = item.icon,
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.size(SettingsDimensions.CategoryIconSize),
+    )
+}
+
+@Composable
+fun SettingsLogoutPill(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier,
+        shape = CircleShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.onSurface,
+            contentColor = MaterialTheme.colorScheme.surface,
+        ),
+        contentPadding = PaddingValues(
+            horizontal = SettingsDimensions.LogoutPillHorizontalPadding,
+            vertical = SettingsDimensions.LogoutPillVerticalPadding,
+        ),
+    ) {
+        Text(
+            text = stringResource(R.string.action_logout),
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleSmall,
+        )
+    }
+}

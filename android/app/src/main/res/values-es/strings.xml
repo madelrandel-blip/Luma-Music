@@ -708,4 +708,8 @@
     <string name="together_welcome_host_body">Pulsa \"comenzar sesión\", después comparte el enlace de sesión. Mantén Luma Music abierto en segundo plano mientras alojas.</string>
     <string name="stream_bypass_proxy">Proxy de derivación para transmisiones</string>
     <string name="stream_bypass_proxy_desc">Utiliza tu dirección IP directa para la reproducción de transmisiones y evita las incompatibilidades de IP</string>
+    <string name="settings_data_saver">Modo Ahorro de Datos</string>
+    <string name="settings_private_search">Búsqueda privada</string>
+    <string name="settings_private_session">Sesión privada</string>
+    <string name="settings_logout_confirm">Se cerrará la sesión de tu cuenta en este dispositivo.</string>
 </resources>

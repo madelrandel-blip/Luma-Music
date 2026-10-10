@@ -21,20 +21,22 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -46,12 +48,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
-import com.arturo254.opentune.BuildConfig
+import com.arturo254.opentune.App.Companion.forgetAccount
 import com.arturo254.opentune.R
+import com.arturo254.opentune.constants.GuestAvatarUriKey
+import com.arturo254.opentune.constants.GuestModeEnabledKey
+import com.arturo254.opentune.constants.GuestNameKey
+import com.arturo254.opentune.constants.InnerTubeCookieKey
+import com.arturo254.opentune.innertube.utils.parseCookieString
+import com.arturo254.opentune.ui.component.AccountSettingsDialog
 import com.arturo254.opentune.ui.component.IconButton
 import com.arturo254.opentune.ui.component.TopSearch
 import com.arturo254.opentune.ui.utils.backToMain
-import com.arturo254.opentune.utils.Updater
+import com.arturo254.opentune.utils.rememberPreference
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,11 +77,28 @@ fun SettingsScreen(
     var query by remember { mutableStateOf(TextFieldValue()) }
     val focusRequester = remember { FocusRequester() }
 
+    var showAccountDialog by remember { mutableStateOf(false) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
+
+    // Play the staggered entrance only on the first visit, not when coming back from a sub-screen.
+    var entrancePlayed by rememberSaveable { mutableStateOf(false) }
+    val animateEntrance = remember { !entrancePlayed }
+    LaunchedEffect(Unit) { entrancePlayed = true }
+
     LaunchedEffect(isSearching) {
         if (isSearching) {
             focusRequester.requestFocus()
         }
     }
+
+    val (innerTubeCookie, onInnerTubeCookieChange) = rememberPreference(InnerTubeCookieKey, "")
+    val (guestModeEnabled, onGuestModeEnabledChange) = rememberPreference(GuestModeEnabledKey, false)
+    val (_, onGuestNameChange) = rememberPreference(GuestNameKey, "")
+    val (_, onGuestAvatarUriChange) = rememberPreference(GuestAvatarUriKey, "")
+    val isLoggedIn = remember(innerTubeCookie) {
+        "SAPISID" in parseCookieString(innerTubeCookie)
+    }
+    val isGuest = guestModeEnabled && !isLoggedIn
 
     val storagePermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         Manifest.permission.READ_MEDIA_AUDIO
@@ -118,50 +143,29 @@ fun SettingsScreen(
         focusManager.clearFocus()
     }
 
-    val quickActions = buildQuickActions(navController, resetSearch)
-    val integrationActions = buildIntegrationActions(navController, resetSearch)
-    val settingsGroups = buildSettingsGroups(navController, isAndroid12OrLater, hasUpdate, context, resetSearch)
+    val quickToggles = buildQuickToggles()
+    val settingsRows = buildSettingsRows(
+        navController = navController,
+        isAndroid12OrLater = isAndroid12OrLater,
+        hasUpdate = hasUpdate,
+        isLoggedIn = isLoggedIn,
+        context = context,
+        onOpenAccount = { showAccountDialog = true },
+        resetSearch = resetSearch,
+    )
     val internalItems = buildInternalItems(navController, resetSearch)
 
     val queryText = query.text.trim()
     val showSearchBar = isSearching || queryText.isNotBlank()
 
-    val filteredQuickActions = filterQuickActions(quickActions, queryText)
-    val filteredIntegrations = filterIntegrations(integrationActions, queryText)
-    val filteredGroups = filterSettingsGroups(settingsGroups, queryText)
-    val filteredInternalItems = filterInternalItems(internalItems, queryText)
-
-    val hasSearchResults by remember(
-        filteredQuickActions,
-        filteredGroups,
-        filteredIntegrations,
-        filteredInternalItems,
-    ) {
-        derivedStateOf {
-            filteredQuickActions.isNotEmpty() ||
-                filteredGroups.isNotEmpty() ||
-                filteredIntegrations.isNotEmpty() ||
-                filteredInternalItems.isNotEmpty()
-        }
-    }
-
-    val internalGroup = if (filteredInternalItems.isNotEmpty()) {
-        SettingsGroup(
-            title = stringResource(R.string.internal_subcategory_settings),
-            items = filteredInternalItems,
-        )
-    } else null
-
     val contentState = SettingsContentState(
-        quickActions = if (queryText.isBlank()) quickActions else filteredQuickActions,
-        integrations = if (queryText.isBlank()) integrationActions else filteredIntegrations,
-        groups = if (queryText.isBlank()) settingsGroups else filteredGroups,
-        internalGroup = if (queryText.isNotBlank()) internalGroup else null,
+        quickToggles = quickToggles,
+        rows = settingsRows,
         showPermissionBanner = shouldShowPermissionHint,
         showUpdateBanner = hasUpdate,
         latestVersion = latestVersionName,
-        isSearchActive = queryText.isNotBlank(),
-        hasSearchResults = hasSearchResults,
+        showLogout = isLoggedIn || isGuest,
+        isSearchActive = false,
         onRequestPermission = {
             val toRequest = buildList {
                 if (!isStorageGranted) add(storagePermission)
@@ -174,16 +178,18 @@ fun SettingsScreen(
             }
         },
         onUpdateClick = { navController.navigate("settings/update") },
+        onLogoutClick = { showLogoutDialog = true },
     )
 
     Scaffold(
         topBar = {
             if (!showSearchBar) {
-                LargeTopAppBar(
+                CenterAlignedTopAppBar(
                     title = {
                         Text(
                             text = stringResource(R.string.settings),
                             fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium,
                         )
                     },
                     navigationIcon = {
@@ -204,14 +210,14 @@ fun SettingsScreen(
                         ) {
                             Icon(
                                 painter = painterResource(R.drawable.search),
-                                contentDescription = null,
+                                contentDescription = stringResource(R.string.search),
                             )
                         }
                     },
                     scrollBehavior = scrollBehavior,
-                    colors = TopAppBarDefaults.largeTopAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                        scrolledContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        scrolledContainerColor = MaterialTheme.colorScheme.surface,
                     ),
                 )
             }
@@ -222,10 +228,11 @@ fun SettingsScreen(
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize()) {
             if (!showSearchBar) {
-                AdaptiveSettingsLayout(
+                SettingsList(
                     state = contentState,
                     listState = listState,
                     topPadding = innerPadding.calculateTopPadding(),
+                    animateEntrance = animateEntrance,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -280,16 +287,60 @@ fun SettingsScreen(
                     },
                     focusRequester = focusRequester,
                 ) {
-                    val searchState = contentState.copy(
-                        isSearchActive = true,
-                    )
-                    AdaptiveSettingsLayout(
+                    val searchState = if (queryText.isBlank()) {
+                        contentState.copy(isSearchActive = true)
+                    } else {
+                        contentState.copy(
+                            quickToggles = filterQuickToggles(quickToggles, queryText),
+                            rows = filterSettingsItems(settingsRows + internalItems, queryText),
+                            isSearchActive = true,
+                        )
+                    }
+                    SettingsList(
                         state = searchState,
+                        animateEntrance = false,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
             }
         }
     }
-}
 
+    if (showAccountDialog) {
+        AccountSettingsDialog(
+            navController = navController,
+            onDismiss = { showAccountDialog = false },
+            latestVersionName = latestVersionName,
+        )
+    }
+
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text(text = stringResource(R.string.action_logout)) },
+            text = { Text(text = stringResource(R.string.settings_logout_confirm)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLogoutDialog = false
+                        if (isLoggedIn) {
+                            onInnerTubeCookieChange("")
+                            forgetAccount(context)
+                        } else if (isGuest) {
+                            onGuestModeEnabledChange(false)
+                            onGuestNameChange("")
+                            onGuestAvatarUriChange("")
+                        }
+                    },
+                ) {
+                    Text(text = stringResource(R.string.action_logout))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) {
+                    Text(text = stringResource(android.R.string.cancel))
+                }
+            },
+        )
+    }
+}

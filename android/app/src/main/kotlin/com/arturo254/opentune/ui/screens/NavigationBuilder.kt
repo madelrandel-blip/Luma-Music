@@ -10,6 +10,7 @@ import com.arturo254.opentune.ui.screens.DownloadQueueScreen
 import android.net.Uri
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -43,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -96,10 +98,51 @@ import com.arturo254.opentune.ui.screens.musicrecognition.MusicRecognitionScreen
 import com.arturo254.opentune.ui.screens.playlist.SpotifyPlaylistScreen
 import com.arturo254.opentune.ui.screens.settings.AODSettings
 import com.arturo254.opentune.ui.screens.settings.AndroidAutoSettings
+import com.arturo254.opentune.ui.screens.settings.SettingsAnimations
 
 import com.arturo254.opentune.ui.utils.ShowMediaInfo
 import com.arturo254.opentune.utils.rememberEnumPreference
 import com.arturo254.opentune.utils.rememberPreference
+
+private fun isSettingsRoute(route: String?): Boolean =
+    route == "settings" || route?.startsWith("settings/") == true
+
+/**
+ * Settings screens slide in from the right and slide back out to the right,
+ * with the screen underneath shifting slightly. Transitions to or from
+ * non-settings screens fall back to the NavHost defaults (null).
+ */
+private fun NavGraphBuilder.settingsComposable(
+    route: String,
+    content: @Composable AnimatedContentScope.(NavBackStackEntry) -> Unit,
+) = composable(
+    route = route,
+    enterTransition = {
+        slideInHorizontally(tween(SettingsAnimations.NavSlideDuration)) { it } +
+            fadeIn(tween(SettingsAnimations.NavFadeDuration))
+    },
+    exitTransition = {
+        if (isSettingsRoute(targetState.destination.route)) {
+            slideOutHorizontally(tween(SettingsAnimations.NavSlideDuration)) { -it / 4 } +
+                fadeOut(tween(SettingsAnimations.NavFadeDuration))
+        } else {
+            null
+        }
+    },
+    popEnterTransition = {
+        if (isSettingsRoute(initialState.destination.route)) {
+            slideInHorizontally(tween(SettingsAnimations.NavSlideDuration)) { -it / 4 } +
+                fadeIn(tween(SettingsAnimations.NavFadeDuration))
+        } else {
+            null
+        }
+    },
+    popExitTransition = {
+        slideOutHorizontally(tween(SettingsAnimations.NavSlideDuration)) { it } +
+            fadeOut(tween(SettingsAnimations.NavFadeDuration))
+    },
+    content = content,
+)
 
 @RequiresApi(Build.VERSION_CODES.R)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -318,16 +361,16 @@ fun NavGraphBuilder.navigationBuilder(
     ) {
         YouTubeBrowseScreen(navController)
     }
-    composable("settings") {
+    settingsComposable("settings") {
         SettingsScreen(navController, scrollBehavior, latestVersionName)
     }
-    composable("settings/appearance") {
+    settingsComposable("settings/appearance") {
         AppearanceSettings(navController, scrollBehavior)
     }
-    composable("settings/appearance/palette_picker") {
+    settingsComposable("settings/appearance/palette_picker") {
         PalettePickerScreen(navController)
     }
-    composable("settings/appearance/theme_creator") {
+    settingsComposable("settings/appearance/theme_creator") {
         ThemeCreatorScreen(navController)
     }
     composable(
@@ -360,68 +403,68 @@ fun NavGraphBuilder.navigationBuilder(
         SpotifyPlaylistScreen(navController, scrollBehavior)
     }
 
-    composable("settings/widget") {
+    settingsComposable("settings/widget") {
         WidgetSettings(navController, scrollBehavior)
     }
-    composable("settings/content") {
+    settingsComposable("settings/content") {
         ContentSettings(navController, scrollBehavior)
     }
-    composable("settings/player") {
+    settingsComposable("settings/player") {
         PlayerSettings(navController, scrollBehavior)
     }
-    composable("settings/storage") {
+    settingsComposable("settings/storage") {
         StorageSettings(navController, scrollBehavior)
     }
-    composable("settings/privacy") {
+    settingsComposable("settings/privacy") {
         PrivacySettings(navController, scrollBehavior)
     }
-    composable("settings/backup_restore") {
+    settingsComposable("settings/backup_restore") {
         BackupAndRestore(navController, scrollBehavior)
     }
-    composable("settings/discord") {
+    settingsComposable("settings/discord") {
         DiscordSettings(navController, scrollBehavior)
     }
-    composable("settings/integration") {
+    settingsComposable("settings/integration") {
         IntegrationScreen(navController, scrollBehavior)
     }
-    composable("settings/music_together") {
+    settingsComposable("settings/music_together") {
         MusicTogetherScreen(navController, scrollBehavior)
     }
-    composable("settings/lastfm") {
+    settingsComposable("settings/lastfm") {
         LastFMSettings(navController, scrollBehavior)
     }
-    composable("settings/discord/experimental") {
+    settingsComposable("settings/discord/experimental") {
         com.arturo254.opentune.ui.screens.settings.DiscordExperimental(navController)
     }
-    composable("settings/misc") {
+    settingsComposable("settings/misc") {
         DebugSettings(navController)
     }
-    composable("settings/update") {
+    settingsComposable("settings/update") {
         UpdateScreen(navController, scrollBehavior)
     }
-    composable("settings/changelog") {
+    settingsComposable("settings/changelog") {
         ChangelogScreen(navController, scrollBehavior)
     }
-    composable("settings/discord/login") {
+    settingsComposable("settings/discord/login") {
         DiscordLoginScreen(navController)
     }
-    composable("settings/discord/social_login") {
+    settingsComposable("settings/discord/social_login") {
         DiscordSocialLoginScreen(navController)
     }
-    composable("settings/android_auto") {
+    settingsComposable("settings/android_auto") {
         AndroidAutoSettings(
             navController,
             scrollBehavior,
             context = androidx.compose.ui.platform.LocalContext.current
         )
     }
-    composable("settings/about") {
+    settingsComposable("settings/about") {
         AboutScreen(navController, scrollBehavior)
     }
     composable(Screens.DownloadQueue.route) {
         DownloadQueueScreen(navController)
     }
-    composable("settings/po_token") {
+    settingsComposable("settings/po_token") {
         PoTokenScreen(navController, scrollBehavior)
     }
     composable("customize_background") {

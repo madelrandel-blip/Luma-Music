@@ -878,4 +878,8 @@ Luma Music will only extract your token, and everything else is stored locally.<
     <string name="lyrics_provider_priority">Priority: %1$s</string>
     <string name="select_option">Select</string>
     <string name="enter_value">Enter Value</string>
+    <string name="settings_data_saver">Data saver</string>
+    <string name="settings_private_search">Private search</string>
+    <string name="settings_private_session">Private session</string>
+    <string name="settings_logout_confirm">You will be signed out of your account on this device.</string>
 </resources>
