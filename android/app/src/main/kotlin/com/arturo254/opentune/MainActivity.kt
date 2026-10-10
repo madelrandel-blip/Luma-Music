@@ -116,6 +116,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -869,6 +870,10 @@ class MainActivity : ComponentActivity() {
                         mutableStateOf(intent?.action == ACTION_SEARCH)
                     }
 
+                    // The Search tab opens the search overlay without popping the keyboard;
+                    // it only appears once the user taps the field.
+                    var openedFromSearchTab by remember { mutableStateOf(false) }
+
                     val shouldShowSearchBar =
                         remember(active, navBackStackEntry) {
                             active ||
@@ -1122,7 +1127,10 @@ class MainActivity : ComponentActivity() {
                         if (active) {
                             searchBarScrollBehavior.state.resetHeightOffset()
                             topAppBarScrollBehavior.state.resetHeightOffset()
-                            searchBarFocusRequester.requestFocus()
+                            if (!openedFromSearchTab) searchBarFocusRequester.requestFocus()
+                            openedFromSearchTab = false
+                        } else {
+                            openedFromSearchTab = false
                         }
                     }
 
@@ -1307,6 +1315,7 @@ class MainActivity : ComponentActivity() {
                                                 }
 
                                                 if (screen.route == Screens.Search.route) {
+                                                    openedFromSearchTab = true
                                                     onActiveChange(true)
                                                 } else {
                                                     // Leaving search mode takes priority: otherwise the
@@ -1402,7 +1411,9 @@ class MainActivity : ComponentActivity() {
                                                 title = {},
                                                 navigationIcon = {
                                                     IconButton(
-                                                        modifier = Modifier.size(40.dp),
+                                                        modifier = Modifier
+                                                            .padding(start = (LocalConfiguration.current.screenWidthDp * 0.05f).dp)
+                                                            .size(40.dp),
                                                         onClick = { showAccountDialog = true }
                                                     ) {
                                                         BadgedBox(
@@ -1437,7 +1448,9 @@ class MainActivity : ComponentActivity() {
                                                 },
                                                 actions = {
                                                     IconButton(
-                                                        modifier = Modifier.size(40.dp),
+                                                        modifier = Modifier
+                                                            .padding(end = (LocalConfiguration.current.screenWidthDp * 0.05f).dp)
+                                                            .size(40.dp),
                                                         onClick = { navController.navigate("new_release") }
                                                     ) {
                                                         Icon(
@@ -1801,6 +1814,7 @@ class MainActivity : ComponentActivity() {
                                                 },
                                                 onItemClick = { screen, isSelected ->
                                                     if (screen.route == Screens.Search.route) {
+                                                        openedFromSearchTab = true
                                                         onActiveChange(true)
                                                     } else {
                                                         // Leaving search mode takes priority: otherwise the

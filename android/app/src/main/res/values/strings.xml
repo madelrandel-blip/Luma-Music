@@ -891,4 +891,14 @@ Luma Music will only extract your token, and everything else is stored locally.<
     <string name="drawer_listening_stats">Listening stats</string>
     <string name="drawer_recents">Recents</string>
     <string name="drawer_settings_privacy">Settings and privacy</string>
+    <string name="account_type_linked">Linked account</string>
+    <string name="account_type_guest">Guest account</string>
+    <string name="account_options_title">Login and account</string>
+    <string name="account_options_desc">Log in • Guest profile • Token • Sync</string>
+    <string name="profile_recently_played">Recently played</string>
+    <string name="profile_no_recent">You haven\'t listened to anything yet</string>
+    <string name="profile_your_playlists">Your playlists</string>
+    <string name="profile_no_playlists">No playlists</string>
+    <string name="profile_albums_listened">Albums you\'ve listened to</string>
+    <string name="profile_no_albums">No albums yet</string>
 </resources>

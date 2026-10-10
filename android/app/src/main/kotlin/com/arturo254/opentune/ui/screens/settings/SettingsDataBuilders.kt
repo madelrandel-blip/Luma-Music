@@ -103,6 +103,15 @@ fun buildSettingsRows(
         )
         add(
             SettingsItem(
+                icon = painterResource(R.drawable.login),
+                title = stringResource(R.string.account_options_title),
+                subtitle = stringResource(R.string.account_options_desc),
+                keywords = listOf("login", "logout", "guest", "token", "cookie", "sync", "youtube", "invitado"),
+                onClick = go("settings/account_options"),
+            ),
+        )
+        add(
+            SettingsItem(
                 icon = painterResource(R.drawable.language),
                 title = stringResource(R.string.content),
                 subtitle = subtitleOf(

@@ -73,6 +73,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import com.arturo254.opentune.extensions.toMediaItem
+import com.arturo254.opentune.playback.queues.ListQueue
+import com.arturo254.opentune.ui.component.PlaylistListItem
+import com.arturo254.opentune.ui.component.AlbumGridItem
+import com.arturo254.opentune.ui.component.SongGridItem
+import kotlinx.coroutines.flow.map
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyRow
+import com.arturo254.opentune.LocalPlayerConnection
+import com.arturo254.opentune.LocalDatabase
 import com.arturo254.opentune.LocalPlayerAwareWindowInsets
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.ButtonDefaults
@@ -137,23 +147,20 @@ import com.arturo254.opentune.utils.dataStore
 import com.arturo254.opentune.utils.rememberPreference
 import com.arturo254.opentune.viewmodels.HomeViewModel
 
-/**
- * Full-screen "Account" page (route `settings/account`). Styled like the
- * other settings sub-screens: centred top bar, a profile header with a
- * gradient, then flat sections with bold headers.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AccountSettingsScreen(
+private fun SettingsSubScreenScaffold(
+    title: String,
     navController: NavController,
-    latestVersionName: String,
+    transparentTopBar: Boolean,
+    content: @Composable (topPadding: Dp) -> Unit,
 ) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        text = stringResource(R.string.account),
+                        text = title,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium,
                     )
@@ -167,7 +174,7 @@ fun AccountSettingsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.Transparent,
+                    containerColor = if (transparentTopBar) Color.Transparent else MaterialTheme.colorScheme.surface,
                     scrolledContainerColor = MaterialTheme.colorScheme.surface,
                 ),
             )
@@ -175,12 +182,247 @@ fun AccountSettingsScreen(
         containerColor = MaterialTheme.colorScheme.surface,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { innerPadding ->
+        content(innerPadding.calculateTopPadding())
+    }
+}
+
+/**
+ * Full-screen "Account" profile page (route `settings/account`): a profile
+ * header followed by the user's recent listening, playlists and albums.
+ * Login, guest and token options live in [AccountOptionsScreen].
+ */
+@Composable
+fun AccountSettingsScreen(
+    navController: NavController,
+    latestVersionName: String,
+) {
+    SettingsSubScreenScaffold(
+        title = stringResource(R.string.account),
+        navController = navController,
+        transparentTopBar = true,
+    ) { topPadding ->
+        AccountProfileContent(
+            navController = navController,
+            topPadding = topPadding,
+        )
+    }
+}
+
+/** Login / guest / token / sync options (route `settings/account_options`). */
+@Composable
+fun AccountOptionsScreen(
+    navController: NavController,
+    latestVersionName: String,
+) {
+    SettingsSubScreenScaffold(
+        title = stringResource(R.string.account_options_title),
+        navController = navController,
+        transparentTopBar = false,
+    ) { topPadding ->
         AccountSettings(
             navController = navController,
             latestVersionName = latestVersionName,
-            topPadding = innerPadding.calculateTopPadding(),
+            topPadding = topPadding,
         )
     }
+}
+
+@Composable
+private fun AccountProfileContent(
+    navController: NavController,
+    topPadding: Dp,
+) {
+    val database = LocalDatabase.current
+    val playerConnection = LocalPlayerConnection.current
+    val coroutineScope = rememberCoroutineScope()
+
+    val (innerTubeCookie, _) = rememberPreference(InnerTubeCookieKey, "")
+    val (accountEmail, _) = rememberPreference(AccountEmailKey, "")
+    val (guestModeEnabled, onGuestModeEnabledChange) = rememberPreference(GuestModeEnabledKey, false)
+    val (guestName, onGuestNameChange) = rememberPreference(GuestNameKey, "")
+    val (guestAvatarUri, onGuestAvatarUriChange) = rememberPreference(GuestAvatarUriKey, "")
+    val isLoggedIn = remember(innerTubeCookie) {
+        "SAPISID" in parseCookieString(innerTubeCookie)
+    }
+    val isGuest = guestModeEnabled && !isLoggedIn
+
+    val viewModel: HomeViewModel = hiltViewModel()
+    val accountName by viewModel.accountName.collectAsState()
+    val accountImageUrl by viewModel.accountImageUrl.collectAsState()
+
+    var showLoginChoiceDialog by remember { mutableStateOf(false) }
+    var showGuestProfileDialog by remember { mutableStateOf(false) }
+
+    val recentSongs by remember {
+        database.recentEvents(limit = 60).map { events ->
+            events.map { it.song }.distinctBy { it.id }.take(15)
+        }
+    }.collectAsState(initial = emptyList())
+    val playlists by remember {
+        database.playlistsByCreateDateAsc().map { list ->
+            list.filter { it.playlist.browseId == null || it.playlist.isEditable }.reversed()
+        }
+    }.collectAsState(initial = emptyList())
+    val albums by remember {
+        database.mostPlayedAlbums(fromTimeStamp = 0L, limit = 15)
+    }.collectAsState(initial = emptyList())
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
+            .verticalScroll(rememberScrollState())
+            .windowInsetsPadding(
+                LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom)
+            )
+    ) {
+        AccountProfileHeader(
+            topPadding = topPadding,
+            isLoggedIn = isLoggedIn,
+            isGuest = isGuest,
+            name = when {
+                isLoggedIn -> accountName.ifBlank { accountEmail }
+                isGuest -> guestName.ifBlank { stringResource(R.string.guest_default_name) }
+                else -> stringResource(R.string.not_logged_in)
+            },
+            subtitle = when {
+                isLoggedIn -> stringResource(R.string.account_type_linked)
+                isGuest -> stringResource(R.string.account_type_guest)
+                else -> ""
+            },
+            avatarUrl = when {
+                isLoggedIn -> accountImageUrl
+                isGuest -> guestAvatarUri.ifBlank { null }
+                else -> null
+            },
+            onPrimaryAction = {
+                when {
+                    isLoggedIn -> navController.navigate("account")
+                    isGuest -> showGuestProfileDialog = true
+                    else -> showLoginChoiceDialog = true
+                }
+            },
+            onSettingsClick = {
+                if (!navController.popBackStack("settings", inclusive = false)) {
+                    navController.navigate("settings")
+                }
+            },
+        )
+
+        // Recently played
+        ProfileSectionTitle(stringResource(R.string.profile_recently_played))
+        if (recentSongs.isEmpty()) {
+            ProfileEmptyState(stringResource(R.string.profile_no_recent))
+        } else {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 8.dp),
+            ) {
+                items(recentSongs, key = { it.id }) { song ->
+                    SongGridItem(
+                        song = song,
+                        showDownloadIcon = false,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                playerConnection?.playQueue(
+                                    ListQueue(
+                                        title = null,
+                                        items = recentSongs.map { it.toMediaItem() },
+                                        startIndex = recentSongs.indexOf(song),
+                                    )
+                                )
+                            },
+                    )
+                }
+            }
+        }
+
+        // Playlists
+        ProfileSectionTitle(stringResource(R.string.profile_your_playlists))
+        if (playlists.isEmpty()) {
+            ProfileEmptyState(stringResource(R.string.profile_no_playlists))
+        } else {
+            playlists.forEach { playlist ->
+                PlaylistListItem(
+                    playlist = playlist,
+                    modifier = Modifier.clickable {
+                        navController.navigate("local_playlist/${playlist.id}")
+                    },
+                )
+            }
+        }
+
+        // Albums
+        ProfileSectionTitle(stringResource(R.string.profile_albums_listened))
+        if (albums.isEmpty()) {
+            ProfileEmptyState(stringResource(R.string.profile_no_albums))
+        } else {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 8.dp),
+            ) {
+                items(albums, key = { it.id }) { album ->
+                    AlbumGridItem(
+                        album = album,
+                        coroutineScope = coroutineScope,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { navController.navigate("album/${album.id}") },
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+    }
+
+    if (showLoginChoiceDialog) {
+        LoginChoiceDialog(
+            onDismiss = { showLoginChoiceDialog = false },
+            onChooseYoutube = {
+                showLoginChoiceDialog = false
+                navController.navigate(buildLoginRoute())
+            },
+            onChooseGuest = {
+                showLoginChoiceDialog = false
+                showGuestProfileDialog = true
+            }
+        )
+    }
+
+    if (showGuestProfileDialog) {
+        GuestProfileDialog(
+            initialName = guestName,
+            initialAvatarUri = guestAvatarUri,
+            onDismiss = { showGuestProfileDialog = false },
+            onSave = { name, avatarUri ->
+                onGuestNameChange(name)
+                onGuestAvatarUriChange(avatarUri.orEmpty())
+                onGuestModeEnabledChange(true)
+                showGuestProfileDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun ProfileSectionTitle(text: String) {
+    Text(
+        text = text,
+        fontSize = 22.sp,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
+    )
+}
+
+@Composable
+private fun ProfileEmptyState(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+    )
 }
 
 @Composable
@@ -241,38 +483,7 @@ fun AccountSettings(
                 LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom)
             )
     ) {
-        AccountProfileHeader(
-            topPadding = topPadding,
-            isLoggedIn = isLoggedIn,
-            isGuest = isGuest,
-            name = when {
-                isLoggedIn -> accountName
-                isGuest -> guestName.ifBlank { stringResource(R.string.guest_default_name) }
-                else -> stringResource(R.string.not_logged_in)
-            },
-            subtitle = when {
-                isLoggedIn -> accountEmail.ifBlank { accountChannelHandle }
-                isGuest -> stringResource(R.string.continue_as_guest)
-                else -> ""
-            },
-            avatarUrl = when {
-                isLoggedIn -> accountImageUrl
-                isGuest -> guestAvatarUri.ifBlank { null }
-                else -> null
-            },
-            onPrimaryAction = {
-                when {
-                    isLoggedIn -> navController.navigate("account")
-                    isGuest -> showGuestProfileDialog = true
-                    else -> showLoginChoiceDialog = true
-                }
-            },
-            onSettingsClick = {
-                if (!navController.popBackStack("settings", inclusive = false)) {
-                    navController.navigate("settings")
-                }
-            },
-        )
+        Spacer(Modifier.height(topPadding))
 
         Column(
             modifier = Modifier.padding(top = 8.dp),

@@ -259,7 +259,7 @@ private fun ProfileDrawerContent(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { go("settings/account") }
+                            .clickable { go("settings/account_options") }
                             .padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {

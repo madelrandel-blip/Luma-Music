@@ -721,4 +721,14 @@
     <string name="drawer_listening_stats">Estadísticas de reproducción</string>
     <string name="drawer_recents">Recientes</string>
     <string name="drawer_settings_privacy">Configuración y privacidad</string>
+    <string name="account_type_linked">Cuenta vinculada</string>
+    <string name="account_type_guest">Cuenta de invitado</string>
+    <string name="account_options_title">Inicio de sesión y cuenta</string>
+    <string name="account_options_desc">Iniciar sesión • Perfil de invitado • Token • Sincronización</string>
+    <string name="profile_recently_played">Escuchado recientemente</string>
+    <string name="profile_no_recent">Todavía no has escuchado nada</string>
+    <string name="profile_your_playlists">Tus playlists</string>
+    <string name="profile_no_playlists">No hay playlists</string>
+    <string name="profile_albums_listened">Álbumes que escuchaste</string>
+    <string name="profile_no_albums">Todavía no hay álbumes</string>
 </resources>
