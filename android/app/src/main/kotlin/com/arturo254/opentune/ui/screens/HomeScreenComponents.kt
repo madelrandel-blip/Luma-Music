@@ -185,11 +185,18 @@ fun QuickPicksSection(
                     }
                 )
         ) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
+            // Build the request once per thumbnail URL instead of on every
+            // recomposition (e.g. every play/pause toggle while this card is
+            // visible rebuilt a brand new ImageRequest object before).
+            val context = LocalContext.current
+            val imageRequest = remember(song.song.thumbnailUrl) {
+                ImageRequest.Builder(context)
                     .data(song.song.thumbnailUrl)
                     .crossfade(true)
-                    .build(),
+                    .build()
+            }
+            AsyncImage(
+                model = imageRequest,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
