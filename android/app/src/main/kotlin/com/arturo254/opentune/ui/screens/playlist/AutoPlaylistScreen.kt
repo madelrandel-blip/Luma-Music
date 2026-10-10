@@ -62,6 +62,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.unit.sp
+import com.arturo254.opentune.ui.component.LocalMainUiActions
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -148,6 +152,7 @@ fun AutoPlaylistScreen(
     val haptic = LocalHapticFeedback.current
     val focusManager = LocalFocusManager.current
     val playerConnection = LocalPlayerConnection.current ?: return
+    val mainUiActions = LocalMainUiActions.current
     val isPlaying by playerConnection.isPlaying.collectAsState()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
     val playlist =
@@ -350,7 +355,7 @@ fun AutoPlaylistScreen(
 
     val transparentAppBar by remember {
         derivedStateOf {
-            !disableBlur && !selection && !showTopBarTitle
+            !selection && !showTopBarTitle
         }
     }
 
@@ -370,7 +375,7 @@ fun AutoPlaylistScreen(
             .background(surfaceColor),
     ) {
         // Mesh gradient background layer
-        if (!disableBlur && gradientColors.isNotEmpty() && gradientAlpha > 0f) {
+        if (playlistType == PlaylistType.OTHER && !disableBlur && gradientColors.isNotEmpty() && gradientAlpha > 0f) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -491,144 +496,90 @@ fun AutoPlaylistScreen(
                     }
                 } else {
                     if (!isSearching) {
-                        // Hero Header Item
+                        // Spotify-style header: blue gradient that scrolls with the list,
+                        // big left-aligned title, song count, then download / shuffle / play.
                         item(key = "header") {
                             Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(top = systemBarsTopPadding + 48.dp)
-                                    .padding(horizontal = 24.dp)
-                                    .padding(bottom = 16.dp)
-                            ) {
-                                // Large centered artwork with shadow
-                                Box(
-                                    modifier = Modifier
-                                        .size(240.dp)
-                                        .shadow(
-                                            elevation = 24.dp,
-                                            shape = RoundedCornerShape(16.dp),
-                                            ambientColor = MaterialTheme.colorScheme.primary.copy(
-                                                alpha = 0.3f
-                                            ),
-                                            spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                                    .background(
+                                        Brush.verticalGradient(
+                                            colors = listOf(
+                                                LikedHeaderColor,
+                                                LikedHeaderColor.copy(alpha = 0.55f),
+                                                surfaceColor,
+                                            )
                                         )
-                                ) {
-                                    AsyncImage(
-                                        model = songs!!.firstOrNull()?.song?.thumbnailUrl,
-                                        contentDescription = null,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .clip(RoundedCornerShape(16.dp))
                                     )
-                                }
-
-                                Spacer(modifier = Modifier.height(24.dp))
-
-                                // Playlist title
+                                    .padding(top = systemBarsTopPadding + 64.dp)
+                                    .padding(horizontal = 16.dp)
+                            ) {
                                 Text(
-                                    text = playlist,
-                                    style = MaterialTheme.typography.headlineMedium,
+                                    text = if (playlistType == PlaylistType.LIKE) {
+                                        stringResource(R.string.library_liked_songs)
+                                    } else {
+                                        playlist
+                                    },
+                                    fontSize = 32.sp,
                                     fontWeight = FontWeight.Bold,
-                                    textAlign = TextAlign.Center,
+                                    color = Color.White,
                                     maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
+                                    overflow = TextOverflow.Ellipsis,
                                 )
-
                                 Spacer(modifier = Modifier.height(8.dp))
-
-                                // Metadata chips row
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    // Song count chip
-                                    Surface(
-                                        shape = RoundedCornerShape(16.dp),
-                                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
-                                    ) {
-                                        Text(
-                                            text = pluralStringResource(
-                                                R.plurals.n_song,
-                                                songs!!.size,
-                                                songs!!.size
-                                            ),
-                                            style = MaterialTheme.typography.labelMedium,
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                                        )
-                                    }
-
-                                    // Duration chip
-                                    Surface(
-                                        shape = RoundedCornerShape(16.dp),
-                                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
-                                    ) {
-                                        Text(
-                                            text = makeTimeString(likeLength * 1000L),
-                                            style = MaterialTheme.typography.labelMedium,
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(20.dp))
+                                Text(
+                                    text = pluralStringResource(R.plurals.n_song, songs!!.size, songs!!.size),
+                                    fontSize = 15.sp,
+                                    color = Color.White.copy(alpha = 0.7f),
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
 
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(
-                                        ButtonGroupDefaults.ConnectedSpaceBetween,
-                                        Alignment.CenterHorizontally
-                                    ),
-                                    verticalAlignment = Alignment.CenterVertically
+                                    verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Surface(
-                                        onClick = { navController.navigate(Screens.DownloadQueue.route) },
-                                        shape = ButtonGroupDefaults.connectedLeadingButtonShapes().shape,
-                                        color = MaterialTheme.colorScheme.surfaceVariant,
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .height(48.dp)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.downloading),
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.size(24.dp)
-                                            )
-                                        }
-                                    }
-
-                                    Button(
+                                    androidx.compose.material3.IconButton(
                                         onClick = {
-                                            playerConnection.playQueue(
-                                                ListQueue(
-                                                    title = playlist,
-                                                    items = songs!!.map { it.toMediaItem() },
-                                                ),
-                                            )
+                                            when (downloadState) {
+                                                Download.STATE_COMPLETED -> showRemoveDownloadDialog = true
+                                                Download.STATE_DOWNLOADING -> navController.navigate(Screens.DownloadQueue.route)
+                                                else -> songs!!.forEach { song ->
+                                                    val downloadRequest =
+                                                        DownloadRequest.Builder(song.id, song.id.toUri())
+                                                            .setCustomCacheKey(song.id)
+                                                            .setData(song.song.title.toByteArray())
+                                                            .build()
+                                                    DownloadService.sendAddDownload(
+                                                        context,
+                                                        ExoDownloadService::class.java,
+                                                        downloadRequest,
+                                                        false,
+                                                    )
+                                                }
+                                            }
                                         },
-                                        shape = ButtonGroupDefaults.connectedMiddleButtonShapes().shape,
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.primary,
-                                            contentColor = MaterialTheme.colorScheme.onPrimary
-                                        ),
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .height(48.dp)
                                     ) {
                                         Icon(
-                                            painter = painterResource(R.drawable.play),
-                                            contentDescription = stringResource(R.string.play),
-                                            modifier = Modifier.size(24.dp)
+                                            painter = painterResource(
+                                                when (downloadState) {
+                                                    Download.STATE_COMPLETED -> R.drawable.offline
+                                                    Download.STATE_DOWNLOADING -> R.drawable.downloading
+                                                    else -> R.drawable.download
+                                                }
+                                            ),
+                                            contentDescription = null,
+                                            tint = if (downloadState == Download.STATE_COMPLETED) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                            },
+                                            modifier = Modifier.size(30.dp),
                                         )
                                     }
 
-                                    Button(
+                                    Spacer(modifier = Modifier.weight(1f))
+
+                                    androidx.compose.material3.IconButton(
                                         onClick = {
                                             playerConnection.playQueue(
                                                 ListQueue(
@@ -637,74 +588,101 @@ fun AutoPlaylistScreen(
                                                 ),
                                             )
                                         },
-                                        shape = ButtonGroupDefaults.connectedMiddleButtonShapes().shape,
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.primary,
-                                            contentColor = MaterialTheme.colorScheme.onPrimary
-                                        ),
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .height(48.dp)
                                     ) {
                                         Icon(
                                             painter = painterResource(R.drawable.shuffle),
                                             contentDescription = stringResource(R.string.shuffle),
-                                            modifier = Modifier.size(24.dp)
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(30.dp),
                                         )
                                     }
 
+                                    Spacer(modifier = Modifier.width(12.dp))
+
                                     Surface(
                                         onClick = {
-                                            playerConnection.addToQueue(
-                                                items = songs!!.map { it.toMediaItem() },
+                                            playerConnection.playQueue(
+                                                ListQueue(
+                                                    title = playlist,
+                                                    items = songs!!.map { it.toMediaItem() },
+                                                ),
                                             )
                                         },
-                                        shape = ButtonGroupDefaults.connectedTrailingButtonShapes().shape,
-                                        color = MaterialTheme.colorScheme.surfaceVariant,
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .height(48.dp)
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(56.dp),
                                     ) {
-                                        Box(
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentAlignment = Alignment.Center
-                                        ) {
+                                        Box(contentAlignment = Alignment.Center) {
                                             Icon(
-                                                painter = painterResource(R.drawable.queue_music),
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.size(24.dp)
+                                                painter = painterResource(R.drawable.play),
+                                                contentDescription = stringResource(R.string.play),
+                                                tint = Color.Black,
+                                                modifier = Modifier.size(30.dp),
                                             )
                                         }
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.height(24.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
+                        }
+
+                        if (playlistType == PlaylistType.LIKE) {
+                            item(key = "addToPlaylist") {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { mainUiActions.openSearch() }
+                                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(56.dp)
+                                            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.add),
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(28.dp),
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(14.dp))
+                                    Text(
+                                        text = stringResource(R.string.liked_add_to_playlist),
+                                        fontSize = 17.sp,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                }
                             }
                         }
                     }
 
-                    // Sort Header
-                    item(key = "sortHeader") {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(start = 16.dp),
-                        ) {
-                            SortHeader(
-                                sortType = sortType,
-                                sortDescending = sortDescending,
-                                onSortTypeChange = onSortTypeChange,
-                                onSortDescendingChange = onSortDescendingChange,
-                                sortTypeText = { sortType ->
-                                    when (sortType) {
-                                        AutoPlaylistSongSortType.CREATE_DATE -> R.string.sort_by_create_date
-                                        AutoPlaylistSongSortType.NAME -> R.string.sort_by_name
-                                        AutoPlaylistSongSortType.ARTIST -> R.string.sort_by_artist
-                                        AutoPlaylistSongSortType.PLAY_TIME -> R.string.sort_by_play_time
-                                    }
-                                },
-                                modifier = Modifier.weight(1f),
-                            )
+                    // Sort Header (the liked-songs screen mirrors Spotify and has none)
+                    if (playlistType != PlaylistType.LIKE) {
+                        item(key = "sortHeader") {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(start = 16.dp),
+                            ) {
+                                SortHeader(
+                                    sortType = sortType,
+                                    sortDescending = sortDescending,
+                                    onSortTypeChange = onSortTypeChange,
+                                    onSortDescendingChange = onSortDescendingChange,
+                                    sortTypeText = { sortType ->
+                                        when (sortType) {
+                                            AutoPlaylistSongSortType.CREATE_DATE -> R.string.sort_by_create_date
+                                            AutoPlaylistSongSortType.NAME -> R.string.sort_by_name
+                                            AutoPlaylistSongSortType.ARTIST -> R.string.sort_by_artist
+                                            AutoPlaylistSongSortType.PLAY_TIME -> R.string.sort_by_play_time
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
                         }
                     }
 
@@ -917,3 +895,5 @@ fun AutoPlaylistScreen(
 enum class PlaylistType {
     LIKE, DOWNLOAD, OTHER
 }
+
+private val LikedHeaderColor = Color(0xFF3B3FA0)

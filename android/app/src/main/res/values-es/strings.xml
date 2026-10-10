@@ -717,7 +717,9 @@
     <string name="account_email">Correo electrónico</string>
     <string name="account_channel_handle">Identificador del canal</string>
     <string name="drawer_add_account">Agregar cuenta</string>
-    <string name="drawer_add_account_desc">Inicia sesión con YouTube Music o crea un perfil de invitado</string>
+    <string name="drawer_add_account_desc">Inicia sesión o crea un perfil</string>
+    <string name="drawer_settings">Configuración</string>
+    <string name="drawer_party_mode">Modo Fiesta</string>
     <string name="drawer_listening_stats">Estadísticas de reproducción</string>
     <string name="drawer_recents">Recientes</string>
     <string name="drawer_settings_privacy">Configuración y privacidad</string>
@@ -755,4 +757,5 @@
     <string name="home_load_error">No se pudieron cargar tus recomendaciones. Revisa tu conexión.</string>
     <string name="favorite_artists">Artistas favoritos</string>
     <string name="favorite_artists_desc">Los 4 artistas con los que se arma tu Inicio</string>
+    <string name="liked_add_to_playlist">Agregar a esta playlist</string>
 </resources>

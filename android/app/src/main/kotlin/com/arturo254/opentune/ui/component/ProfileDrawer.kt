@@ -211,7 +211,7 @@ private fun ProfileDrawerContent(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(56.dp)
+                            .size(48.dp)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.surfaceContainerHighest),
                         contentAlignment = Alignment.Center,
@@ -222,7 +222,7 @@ private fun ProfileDrawerContent(
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
-                                    .size(56.dp)
+                                    .size(48.dp)
                                     .clip(CircleShape),
                             )
                         } else {
@@ -230,7 +230,7 @@ private fun ProfileDrawerContent(
                                 painter = painterResource(if (isGuest) R.drawable.person else R.drawable.account),
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(28.dp),
+                                modifier = Modifier.size(24.dp),
                             )
                         }
                     }
@@ -240,7 +240,7 @@ private fun ProfileDrawerContent(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = name,
-                            fontSize = 22.sp,
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
@@ -248,7 +248,7 @@ private fun ProfileDrawerContent(
                         )
                         Text(
                             text = stringResource(R.string.view_profile),
-                            fontSize = 15.sp,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -267,7 +267,7 @@ private fun ProfileDrawerContent(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(32.dp)
+                                .size(48.dp)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.surfaceContainerHighest),
                             contentAlignment = Alignment.Center,
@@ -283,14 +283,16 @@ private fun ProfileDrawerContent(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = stringResource(R.string.drawer_add_account),
-                                fontSize = 18.sp,
+                                style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
                             Text(
                                 text = stringResource(R.string.drawer_add_account_desc),
-                                fontSize = 14.sp,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 2,
+                                maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
@@ -302,9 +304,9 @@ private fun ProfileDrawerContent(
         Spacer(Modifier.height(8.dp))
 
         DrawerRow(
-            icon = painterResource(R.drawable.stats),
-            label = stringResource(R.string.drawer_listening_stats),
-            onClick = { go("stats") },
+            icon = painterResource(R.drawable.settings),
+            label = stringResource(R.string.drawer_settings),
+            onClick = { go("settings") },
         )
         DrawerRow(
             icon = painterResource(R.drawable.history),
@@ -312,19 +314,9 @@ private fun ProfileDrawerContent(
             onClick = { go("history") },
         )
         DrawerRow(
-            icon = painterResource(R.drawable.auto_awesome),
-            label = stringResource(R.string.year_in_music),
-            onClick = { go("year_in_music") },
-        )
-        DrawerRow(
-            icon = painterResource(R.drawable.fire),
-            label = stringResource(R.string.music_together),
+            icon = painterResource(R.drawable.celebration),
+            label = stringResource(R.string.drawer_party_mode),
             onClick = { go("settings/music_together") },
-        )
-        DrawerRow(
-            icon = painterResource(R.drawable.settings),
-            label = stringResource(R.string.drawer_settings_privacy),
-            onClick = { go("settings") },
         )
     }
 }
@@ -338,7 +330,7 @@ private fun DrawerRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(60.dp)
+            .height(52.dp)
             .clickable(onClick = onClick)
             .padding(horizontal = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -347,12 +339,12 @@ private fun DrawerRow(
             painter = icon,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.size(28.dp),
+            modifier = Modifier.size(24.dp),
         )
-        Spacer(Modifier.width(20.dp))
+        Spacer(Modifier.width(18.dp))
         Text(
             text = label,
-            fontSize = 18.sp,
+            style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

@@ -887,7 +887,9 @@ Luma Music will only extract your token, and everything else is stored locally.<
     <string name="account_email">Email</string>
     <string name="account_channel_handle">Channel handle</string>
     <string name="drawer_add_account">Add account</string>
-    <string name="drawer_add_account_desc">Sign in with YouTube Music or create a guest profile</string>
+    <string name="drawer_add_account_desc">Sign in or create a profile</string>
+    <string name="drawer_settings">Settings</string>
+    <string name="drawer_party_mode">Party mode</string>
     <string name="drawer_listening_stats">Listening stats</string>
     <string name="drawer_recents">Recents</string>
     <string name="drawer_settings_privacy">Settings and privacy</string>
@@ -925,4 +927,5 @@ Luma Music will only extract your token, and everything else is stored locally.<
     <string name="home_load_error">Couldn\'t load your recommendations. Check your connection.</string>
     <string name="favorite_artists">Favorite artists</string>
     <string name="favorite_artists_desc">The 4 artists your Home is built from</string>
+    <string name="liked_add_to_playlist">Add to this playlist</string>
 </resources>
